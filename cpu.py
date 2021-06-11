@@ -137,6 +137,7 @@ def step():
 
   # Instruction Decode
   opcode = Ops(gibi(6, 0))
+  npc = regfile[PC] + 4
   #print("%x %8x %r" % (regfile[PC], ins, opcode))
 
   if opcode == Ops.JAL:
@@ -145,21 +146,18 @@ def step():
     offset = (gibi(32, 31)<<20) | (gibi(30, 21)<<1) | (gibi(21, 20)<<11) | (gibi(19, 12)<<12)
     offset = sign_extend(offset, 21)
     regfile[rd] = regfile[PC] + 4
-    regfile[PC] += offset
-    return True
+    npc = regfile[PC] + offset
   elif opcode == Ops.JALR:
     # I-type instruction
     rd = gibi(11, 7)
     rs1 = gibi(19, 15)
     imm = sign_extend(gibi(31, 20), 12)
-    nv = regfile[PC] + 4
-    regfile[PC] = regfile[rs1] + imm
-    regfile[rd] = nv
-    return True
+    npc = regfile[rs1] + imm
+    regfile[rd] = regfile[PC] + 4
   elif opcode == Ops.LUI:
+    # U-type instruction
     rd = gibi(11, 7)
     imm = gibi(31, 12)
-    # U-type instruction
     regfile[rd] = imm << 12
   elif opcode == Ops.AUIPC:
     # U-type instruction
@@ -225,8 +223,7 @@ def step():
       dump()
       raise Exception("write %r funct3 %r" % (opcode, funct3))
     if cond:
-      regfile[PC] += offset
-      return True
+      npc = regfile[PC] + offset
   elif opcode == Ops.LOAD:
     # I-type instruction
     rd = gibi(11, 7)
@@ -270,6 +267,7 @@ def step():
       pass
     elif funct3 == Funct3.CSRRW:
       #print("CSRRW", rd, rs1, csr)
+      # actual exit
       if csr == 3072:
         return False
     elif funct3 == Funct3.CSRRWI:
@@ -279,15 +277,14 @@ def step():
       print("ecall", regfile[3])
       if regfile[3] > 1:
         raise Exception("FAILURE IN TEST, PLZ CHECK")
-      #return False
     else:
       raise Exception("write more csr crap")
   else:
     dump()
     raise Exception("write op %r" % opcode)
 
-  #dump()
-  regfile[PC] += 4
+  # Register write back
+  regfile[PC] = npc
   return True
 
 
