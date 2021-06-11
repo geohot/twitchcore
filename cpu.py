@@ -250,8 +250,7 @@ if __name__ == "__main__":
       for s in e.iter_segments():
         ws(s.header.p_paddr, s.data())
       with open("test-cache/%s" % x.split("/")[-1], "wb") as g:
-        dat = binascii.hexlify(memory)
-        g.write(b'\n'.join([dat[i:i+8] for i in range(0,len(dat),8)]))
+        g.write(b'\n'.join([binascii.hexlify(memory[i:i+4][::-1]) for i in range(0,len(memory),4)]))
       regfile[PC] = 0x80000000
       inscnt = 0
       while step():
