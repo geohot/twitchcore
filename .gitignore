@@ -1,3 +1,4 @@
 .*.swp
 riscv-tests
+test-cache
 run

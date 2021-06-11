@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import struct
 import glob
+import binascii
 from elftools.elf.elffile import ELFFile
 
 regnames = \
@@ -26,8 +27,8 @@ memory = None
 def reset():
   global regfile, memory
   regfile = Regfile()
-  # 8kb at 0x80000000
-  memory = b'\x00'*0x2000
+  # 16kb at 0x80000000
+  memory = b'\x00'*0x4000
 
 from enum import Enum
 # RV32I Base Instruction Set
@@ -174,72 +175,37 @@ def step():
   imm_u = sign_extend(gibi(31, 12)<<12, 32)
   imm_j = sign_extend((gibi(32, 31)<<20) | (gibi(30, 21)<<1) | (gibi(21, 20)<<11) | (gibi(19, 12)<<12), 21)
 
+  # register write set up
+  rd = gibi(11, 7)
+  reg_writeback = opcode in [Ops.JAL, Ops.JALR, Ops.AUIPC, Ops.LUI, Ops.OP, Ops.IMM, Ops.LOAD]
+  do_load = opcode == Ops.LOAD
+  do_store = opcode == Ops.STORE
+
   # register reads
   vs1 = regfile[gibi(19, 15)]
   vs2 = regfile[gibi(24, 20)]
   vpc = regfile[PC]
 
-  # register write set up
-  rd = gibi(11, 7)
-  reg_writeback = False
-  pend_is_new_pc = False
-  do_load = False
-  do_store = False
-
   # *** Execute ***
-  if opcode == Ops.JAL:
-    # J-type instruction
-    pend = arith(Funct3.ADD, vpc, imm_j, False)
-    pend_is_new_pc = True
-    reg_writeback = True
-  elif opcode == Ops.JALR:
+  alt = (funct7 == 0b0100000) and (opcode == Ops.OP or (opcode == Ops.IMM and funct3 == Funct3.SRAI))
+  lookup = {Ops.JAL: imm_j, Ops.JALR: imm_i, Ops.BRANCH: imm_b, Ops.AUIPC: imm_u,
+            Ops.LUI: imm_u, Ops.OP: vs2, Ops.IMM: imm_i, Ops.LOAD: imm_i, Ops.STORE: imm_s,
+            Ops.SYSTEM: imm_i, Ops.MISC: imm_i}
+  imm = lookup[opcode]
+  vs1r = vpc if opcode in [Ops.JAL, Ops.BRANCH, Ops.AUIPC] else (0 if opcode == Ops.LUI else vs1)
+  arith_func = funct3 if opcode in [Ops.OP, Ops.IMM] else Funct3.ADD
+  pend_is_new_pc = opcode in [Ops.JAL, Ops.JALR] or (opcode == Ops.BRANCH and cond(funct3, vs1, vs2))
+  pend = arith(arith_func, vs1r, imm, alt)
+
+  if opcode == Ops.SYSTEM:
     # I-type instruction
-    pend = arith(Funct3.ADD, vs1, imm_i, False)
-    pend_is_new_pc = True
-    reg_writeback = True
-  elif opcode == Ops.BRANCH:
-    # B-type instruction
-    pend = arith(Funct3.ADD, vpc, imm_b, False)
-    pend_is_new_pc = cond(funct3, vs1, vs2)
-  elif opcode == Ops.AUIPC:
-    # U-type instruction
-    pend = arith(Funct3.ADD, vpc, imm_u, False)
-    reg_writeback = True
-  elif opcode == Ops.LUI:
-    # U-type instruction
-    pend = imm_u
-    reg_writeback = True
-  elif opcode == Ops.OP:
-    # R-type instruction
-    pend = arith(funct3, vs1, vs2, funct7 == 0b0100000)
-    reg_writeback = True
-  elif opcode == Ops.IMM:
-    # I-type instruction
-    pend = arith(funct3, vs1, imm_i, funct7 == 0b0100000 and funct3 == Funct3.SRAI)
-    reg_writeback = True
-  elif opcode == Ops.LOAD:
-    # I-type instruction
-    pend = arith(Funct3.ADD, vs1, imm_i, False)
-    do_load = True
-    reg_writeback = True
-  elif opcode == Ops.STORE:
-    # S-type instruction
-    pend = arith(Funct3.ADD, vs1, imm_s, False)
-    do_store = True
-  elif opcode == Ops.MISC:
-    pass
-  elif opcode == Ops.SYSTEM:
-    # I-type instruction
-    if funct3 == Funct3.CSRRW and imm_i == -1024:
-      # hack for test exit
-      return False
-    elif funct3 == Funct3.ECALL:
+    if funct3 == Funct3.ECALL:
       print("ecall", regfile[3])
       if regfile[3] > 1:
         raise Exception("FAILURE IN TEST, PLZ CHECK")
-  else:
-    dump()
-    raise Exception("write op %r" % opcode)
+      elif regfile[3] == 1:
+        # hack for test exit
+        return False
 
   # *** Memory access ***
   if do_load:
@@ -283,6 +249,9 @@ if __name__ == "__main__":
       e = ELFFile(f)
       for s in e.iter_segments():
         ws(s.header.p_paddr, s.data())
+      with open("test-cache/%s" % x.split("/")[-1], "wb") as g:
+        dat = binascii.hexlify(memory)
+        g.write(b'\n'.join([dat[i:i+8] for i in range(0,len(dat),8)]))
       regfile[PC] = 0x80000000
       while step():
         pass
