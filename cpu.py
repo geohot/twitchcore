@@ -19,8 +19,15 @@ class Regfile:
       return
     self.regs[key] = value & 0xFFFFFFFF
 
-regfile = Regfile()
 PC = 32
+
+regfile = None
+memory = None
+def reset():
+  global regfile, memory
+  regfile = Regfile()
+  # 64k at 0x80000000
+  memory = b'\x00'*0x10000
 
 from enum import Enum
 # RV32I Base Instruction Set
@@ -67,8 +74,6 @@ class Funct3(Enum):
   CSRRSI = 0b110
   CSRRCI = 0b111
 
-# 64k at 0x80000000
-memory = b'\x00'*0x10000
 
 def ws(dat, addr):
   global memory
@@ -97,6 +102,27 @@ def sign_extend(x, l):
   else:
     return x
 
+def arith(funct3, x, y):
+  if funct3 == Funct3.ADDI:
+    return x+y
+  elif funct3 == Funct3.SLLI:
+    return x<<y
+  elif funct3 == Funct3.SRLI:
+    return x>>y
+  elif funct3 == Funct3.ORI:
+    return x|y
+  elif funct3 == Funct3.XORI:
+    return x^y
+  elif funct3 == Funct3.ANDI:
+    return x&y
+  elif funct3 == Funct3.SLT:
+    return int(sign_extend(x, 32) < sign_extend(y, 32))
+  elif funct3 == Funct3.SLTU:
+    return int(x < y)
+  else:
+    dump()
+    raise Exception("write arith funct3 %r" % funct3)
+
 def step():
   # Instruction Fetch
   ins = r32(regfile[PC])
@@ -105,7 +131,7 @@ def step():
 
   # Instruction Decode
   opcode = Ops(gibi(6, 0))
-  print("%x %8x %r" % (regfile[PC], ins, opcode))
+  #print("%x %8x %r" % (regfile[PC], ins, opcode))
 
   if opcode == Ops.JAL:
     # J-type instruction
@@ -142,13 +168,7 @@ def step():
     rs2 = gibi(24, 20)
     funct3 = Funct3(gibi(14, 12))
     funct7 = gibi(31, 25)
-    if funct3 == Funct3.ADD:
-      regfile[rd] = regfile[rs1] + regfile[rs2]
-    elif funct3 == Funct3.OR:
-      regfile[rd] = regfile[rs1] | regfile[rs2]
-    else:
-      dump()
-      raise Exception("write %r funct3 %r" % (opcode, funct3))
+    regfile[rd] = arith(funct3, regfile[rs1], regfile[rs2])
   elif opcode == Ops.IMM:
     # I-type instruction
     rd = gibi(11, 7)
@@ -156,17 +176,7 @@ def step():
     funct3 = Funct3(gibi(14, 12))
     imm = sign_extend(gibi(31, 20), 12)
     #print(rd, rs1, funct3, imm)
-    if funct3 == Funct3.ADDI:
-      regfile[rd] = regfile[rs1] + imm
-    elif funct3 == Funct3.SLLI:
-      regfile[rd] = regfile[rs1] << imm
-    elif funct3 == Funct3.SRLI:
-      regfile[rd] = regfile[rs1] >> imm
-    elif funct3 == Funct3.ORI:
-      regfile[rd] = regfile[rs1] | imm
-    else:
-      dump()
-      raise Exception("write %r funct3 %r" % (opcode, funct3))
+    regfile[rd] = arith(funct3, regfile[rs1], imm)
   elif opcode == Ops.BRANCH:
     # B-type instruction
     rs1 = gibi(19, 15)
@@ -180,8 +190,12 @@ def step():
     elif funct3 == Funct3.BNE:
       cond = regfile[rs1] != regfile[rs2]
     elif funct3 == Funct3.BLT:
-      cond = regfile[rs1] < regfile[rs2]
+      cond = sign_extend(regfile[rs1], 32) < sign_extend(regfile[rs2], 32)
     elif funct3 == Funct3.BGE:
+      cond = sign_extend(regfile[rs1], 32) >= sign_extend(regfile[rs2], 32)
+    elif funct3 == Funct3.BLTU:
+      cond = regfile[rs1] < regfile[rs2]
+    elif funct3 == Funct3.BGEU:
       cond = regfile[rs1] >= regfile[rs2]
     else:
       dump()
@@ -214,15 +228,17 @@ def step():
     rs1 = gibi(19, 15)
     csr = gibi(31, 20)
     if funct3 == Funct3.CSRRS:
-      print("CSRRS", rd, rs1, csr)
+      #print("CSRRS", rd, rs1, csr)
+      pass
     elif funct3 == Funct3.CSRRW:
-      print("CSRRW", rd, rs1, csr)
+      #print("CSRRW", rd, rs1, csr)
       if csr == 3072:
         return False
     elif funct3 == Funct3.CSRRWI:
-      print("CSRRWI", rd, rs1, csr)
+      #print("CSRRWI", rd, rs1, csr)
+      pass
     elif funct3 == Funct3.ECALL:
-      print("ecall", regfile[3])
+      #print("ecall", regfile[3])
       if regfile[3] == 21:
         raise Exception("FAILURE IN TEST, PLZ CHECK")
       #return False
@@ -232,16 +248,19 @@ def step():
     dump()
     raise Exception("write op %r" % opcode)
 
-  dump()
+  #dump()
   regfile[PC] += 4
   return True
 
 
 if __name__ == "__main__":
-  for x in glob.glob("riscv-tests/isa/rv32ui-p-add*"):
+  for x in glob.glob("riscv-tests/isa/rv32ui-p-*"):
     if x.endswith('.dump'):
       continue
+    if 'fence_i' in x:
+      continue
     with open(x, 'rb') as f:
+      reset()
       print("test", x)
       e = ELFFile(f)
       for s in e.iter_segments():
@@ -249,5 +268,4 @@ if __name__ == "__main__":
       regfile[PC] = 0x80000000
       while step():
         pass
-    break
 
