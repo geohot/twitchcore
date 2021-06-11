@@ -145,13 +145,17 @@ def step():
   def gibi(s, e):
     return (ins >> e) & ((1 << (s-e+1))-1)
 
-  # Instruction Decode
+  # Instruction decode and register fetch
   opcode = Ops(gibi(6, 0))
   npc = regfile[PC] + 4
 
+  # register reads
+  vs1 = regfile[gibi(19, 15)]
+  vs2 = regfile[gibi(24, 20)]
+  vpc = regfile[PC]
+
+  # register write
   rd = gibi(11, 7)
-  rs1 = gibi(19, 15)
-  rs2 = gibi(24, 20)
   pend = None
   #print("%x %8x %r" % (regfile[PC], ins, opcode))
 
@@ -160,32 +164,32 @@ def step():
     # J-type instruction
     offset = (gibi(32, 31)<<20) | (gibi(30, 21)<<1) | (gibi(21, 20)<<11) | (gibi(19, 12)<<12)
     offset = sign_extend(offset, 21)
-    pend = regfile[PC] + 4
-    npc = regfile[PC] + offset
+    pend = vpc + 4
+    npc = vpc + offset
   elif opcode == Ops.JALR:
     # I-type instruction
     imm = sign_extend(gibi(31, 20), 12)
-    npc = regfile[rs1] + imm
-    pend = regfile[PC] + 4
+    npc = vs1 + imm
+    pend = vpc + 4
+  elif opcode == Ops.AUIPC:
+    # U-type instruction
+    imm = gibi(31, 12)
+    pend = vpc + sign_extend(imm << 12, 32)
   elif opcode == Ops.LUI:
     # U-type instruction
     imm = gibi(31, 12)
     pend = imm << 12
-  elif opcode == Ops.AUIPC:
-    # U-type instruction
-    imm = gibi(31, 12)
-    pend = regfile[PC] + sign_extend(imm << 12, 32)
   elif opcode == Ops.OP:
     # R-type instruction
     funct3 = Funct3(gibi(14, 12))
     funct7 = gibi(31, 25)
-    pend = arith(funct3, regfile[rs1], regfile[rs2], funct7 == 0b0100000)
+    pend = arith(funct3, vs1, vs2, funct7 == 0b0100000)
   elif opcode == Ops.IMM:
     # I-type instruction
     funct3 = Funct3(gibi(14, 12))
     imm = sign_extend(gibi(31, 20), 12)
     funct7 = gibi(31, 25)
-    pend = arith(funct3, regfile[rs1], imm, funct7 == 0b0100000 and funct3 == Funct3.SRAI)
+    pend = arith(funct3, vs1, imm, funct7 == 0b0100000 and funct3 == Funct3.SRAI)
   elif opcode == Ops.BRANCH:
     # B-type instruction
     funct3 = Funct3(gibi(14, 12))
@@ -193,22 +197,22 @@ def step():
     offset = sign_extend(offset, 13)
     cond = False
     if funct3 == Funct3.BEQ:
-      cond = regfile[rs1] == regfile[rs2]
+      cond = vs1 == vs2
     elif funct3 == Funct3.BNE:
-      cond = regfile[rs1] != regfile[rs2]
+      cond = vs1 != vs2
     elif funct3 == Funct3.BLT:
-      cond = sign_extend(regfile[rs1], 32) < sign_extend(regfile[rs2], 32)
+      cond = sign_extend(vs1, 32) < sign_extend(vs2, 32)
     elif funct3 == Funct3.BGE:
-      cond = sign_extend(regfile[rs1], 32) >= sign_extend(regfile[rs2], 32)
+      cond = sign_extend(vs1, 32) >= sign_extend(vs2, 32)
     elif funct3 == Funct3.BLTU:
-      cond = regfile[rs1] < regfile[rs2]
+      cond = vs1 < vs2
     elif funct3 == Funct3.BGEU:
-      cond = regfile[rs1] >= regfile[rs2]
+      cond = vs1 >= vs2
     else:
       dump()
       raise Exception("write %r funct3 %r" % (opcode, funct3))
     if cond:
-      npc = regfile[PC] + offset
+      npc = vpc + offset
   elif opcode == Ops.MISC:
     pass
   elif opcode == Ops.SYSTEM:
@@ -236,7 +240,7 @@ def step():
     # I-type instruction
     funct3 = Funct3(gibi(14, 12))
     imm = sign_extend(gibi(31, 20), 12)
-    addr = regfile[rs1] + imm
+    addr = vs1 + imm
     if funct3 == Funct3.LB:
       pend = sign_extend(r32(addr)&0xFF, 8)
     elif funct3 == Funct3.LH:
@@ -251,14 +255,13 @@ def step():
     # S-type instruction
     funct3 = Funct3(gibi(14, 12))
     offset = sign_extend(gibi(31, 25)<<5 | gibi(11, 7), 12)
-    addr = regfile[rs1] + offset
-    value = regfile[rs2]
+    addr = vs1 + offset
     if funct3 == Funct3.SB:
-      ws(addr, struct.pack("B", value&0xFF))
+      ws(addr, struct.pack("B", vs2&0xFF))
     elif funct3 == Funct3.SH:
-      ws(addr, struct.pack("H", value&0xFFFF))
+      ws(addr, struct.pack("H", vs2&0xFFFF))
     elif funct3 == Funct3.SW:
-      ws(addr, struct.pack("I", value))
+      ws(addr, struct.pack("I", vs2))
   else:
     dump()
     raise Exception("write op %r" % opcode)
