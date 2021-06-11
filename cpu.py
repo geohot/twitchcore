@@ -180,7 +180,7 @@ def step():
   vpc = regfile[PC]
 
   # register write set up
-  rd = gibi(11, 7) if opcode != Ops.BRANCH else 0
+  rd = gibi(11, 7)
   reg_writeback = False
   pend_is_new_pc = False
   do_load = False
@@ -189,17 +189,18 @@ def step():
   # *** Execute ***
   if opcode == Ops.JAL:
     # J-type instruction
+    pend = arith(Funct3.ADD, vpc, imm_j, False)
     pend_is_new_pc = True
-    pend = vpc + imm_j
+    reg_writeback = True
   elif opcode == Ops.JALR:
     # I-type instruction
+    pend = arith(Funct3.ADD, vs1, imm_i, False)
     pend_is_new_pc = True
-    pend = vs1 + imm_i
+    reg_writeback = True
   elif opcode == Ops.BRANCH:
     # B-type instruction
-    if cond(funct3, vs1, vs2):
-      pend_is_new_pc = True
-      pend = vpc + imm_b
+    pend = arith(Funct3.ADD, vpc, imm_b, False)
+    pend_is_new_pc = cond(funct3, vs1, vs2)
   elif opcode == Ops.AUIPC:
     # U-type instruction
     pend = arith(Funct3.ADD, vpc, imm_u, False)
@@ -216,6 +217,15 @@ def step():
     # I-type instruction
     pend = arith(funct3, vs1, imm_i, funct7 == 0b0100000 and funct3 == Funct3.SRAI)
     reg_writeback = True
+  elif opcode == Ops.LOAD:
+    # I-type instruction
+    pend = arith(Funct3.ADD, vs1, imm_i, False)
+    do_load = True
+    reg_writeback = True
+  elif opcode == Ops.STORE:
+    # S-type instruction
+    pend = arith(Funct3.ADD, vs1, imm_s, False)
+    do_store = True
   elif opcode == Ops.MISC:
     pass
   elif opcode == Ops.SYSTEM:
@@ -227,16 +237,6 @@ def step():
       print("ecall", regfile[3])
       if regfile[3] > 1:
         raise Exception("FAILURE IN TEST, PLZ CHECK")
-  # Memory access step
-  elif opcode == Ops.LOAD:
-    # I-type instruction
-    pend = vs1 + imm_i
-    do_load = True
-    reg_writeback = True
-  elif opcode == Ops.STORE:
-    # S-type instruction
-    pend = vs1 + imm_s
-    do_store = True
   else:
     dump()
     raise Exception("write op %r" % opcode)
@@ -263,7 +263,8 @@ def step():
 
   # *** Register write back ***
   if pend_is_new_pc:
-    regfile[rd] = vpc + 4
+    if reg_writeback:
+      regfile[rd] = vpc + 4
     regfile[PC] = pend
   else:
     if reg_writeback:
