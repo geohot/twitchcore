@@ -150,9 +150,12 @@ def step():
   npc = regfile[PC] + 4
 
   rd = gibi(11, 7)
+  rs1 = gibi(19, 15)
+  rs2 = gibi(24, 20)
   pend = None
   #print("%x %8x %r" % (regfile[PC], ins, opcode))
 
+  # Execute
   if opcode == Ops.JAL:
     # J-type instruction
     offset = (gibi(32, 31)<<20) | (gibi(30, 21)<<1) | (gibi(21, 20)<<11) | (gibi(19, 12)<<12)
@@ -161,7 +164,6 @@ def step():
     npc = regfile[PC] + offset
   elif opcode == Ops.JALR:
     # I-type instruction
-    rs1 = gibi(19, 15)
     imm = sign_extend(gibi(31, 20), 12)
     npc = regfile[rs1] + imm
     pend = regfile[PC] + 4
@@ -175,22 +177,17 @@ def step():
     pend = regfile[PC] + sign_extend(imm << 12, 32)
   elif opcode == Ops.OP:
     # R-type instruction
-    rs1 = gibi(19, 15)
-    rs2 = gibi(24, 20)
     funct3 = Funct3(gibi(14, 12))
     funct7 = gibi(31, 25)
     pend = arith(funct3, regfile[rs1], regfile[rs2], funct7 == 0b0100000)
   elif opcode == Ops.IMM:
     # I-type instruction
-    rs1 = gibi(19, 15)
     funct3 = Funct3(gibi(14, 12))
     imm = sign_extend(gibi(31, 20), 12)
     funct7 = gibi(31, 25)
     pend = arith(funct3, regfile[rs1], imm, funct7 == 0b0100000 and funct3 == Funct3.SRAI)
   elif opcode == Ops.BRANCH:
     # B-type instruction
-    rs1 = gibi(19, 15)
-    rs2 = gibi(24, 20)
     funct3 = Funct3(gibi(14, 12))
     offset = (gibi(32, 31)<<12) | (gibi(30, 25)<<5) | (gibi(11, 8)<<1) | (gibi(8, 7)<<11)
     offset = sign_extend(offset, 13)
@@ -216,7 +213,6 @@ def step():
     pass
   elif opcode == Ops.SYSTEM:
     funct3 = Funct3(gibi(14, 12))
-    rs1 = gibi(19, 15)
     csr = gibi(31, 20)
     if funct3 == Funct3.CSRRS:
       #print("CSRRS", rd, rs1, csr)
@@ -238,7 +234,6 @@ def step():
   # Memory access step
   elif opcode == Ops.LOAD:
     # I-type instruction
-    rs1 = gibi(19, 15)
     funct3 = Funct3(gibi(14, 12))
     imm = sign_extend(gibi(31, 20), 12)
     addr = regfile[rs1] + imm
@@ -254,8 +249,6 @@ def step():
       pend = r32(addr)&0xFFFF
   elif opcode == Ops.STORE:
     # S-type instruction
-    rs1 = gibi(19, 15)
-    rs2 = gibi(24, 20)
     funct3 = Funct3(gibi(14, 12))
     offset = sign_extend(gibi(31, 25)<<5 | gibi(11, 7), 12)
     addr = regfile[rs1] + offset
