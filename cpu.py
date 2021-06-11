@@ -3,7 +3,12 @@ import struct
 import glob
 from elftools.elf.elffile import ELFFile
 
-regfile = [0]*33
+regnames = \
+  ['x0', 'ra', 'sp', 'gp', 'tp'] + ['t%d'%i for i in range(0,3)] + ['s0', 's1'] +\
+  ['a%d'%i for i in range(0,8)] +\
+  ['s%d'%i for i in range(2,12)] +\
+  ['t%d'%i for i in range(3,7)] + ["PC"]
+
 class Regfile:
   def __init__(self):
     self.regs = [0]*33
@@ -53,6 +58,15 @@ class Funct3(Enum):
   BLTU = 0b110
   BGEU = 0b111
 
+  # stupid instructions below this line
+  ECALL = 0b000
+  CSRRW = 0b001
+  CSRRS = 0b010
+  CSRRC = 0b011
+  CSRRWI = 0b101
+  CSRRSI = 0b110
+  CSRRCI = 0b111
+
 # 64k at 0x80000000
 memory = b'\x00'*0x10000
 
@@ -71,11 +85,10 @@ def r32(addr):
 
 def dump():
   pp = []
-  for i in range(32):
+  for i in range(33):
     if i != 0 and i % 8 == 0:
       pp += "\n"
-    pp += " %3s: %08x" % ("x%d" % i, regfile[i])
-  pp += "\n  PC: %08x" % regfile[PC]
+    pp += " %3s: %08x" % (regnames[i], regfile[i])
   print(''.join(pp))
 
 def sign_extend(x, l):
@@ -114,7 +127,7 @@ def step():
     return True
   elif opcode == Ops.LUI:
     rd = gibi(11, 7)
-    imm = gibi(31, 20)
+    imm = gibi(31, 12)
     # U-type instruction
     regfile[rd] = imm << 12
   elif opcode == Ops.AUIPC:
@@ -141,7 +154,7 @@ def step():
     rd = gibi(11, 7)
     rs1 = gibi(19, 15)
     funct3 = Funct3(gibi(14, 12))
-    imm = gibi(31, 20)
+    imm = sign_extend(gibi(31, 20), 12)
     #print(rd, rs1, funct3, imm)
     if funct3 == Funct3.ADDI:
       regfile[rd] = regfile[rs1] + imm
@@ -166,6 +179,10 @@ def step():
       cond = regfile[rs1] == regfile[rs2]
     elif funct3 == Funct3.BNE:
       cond = regfile[rs1] != regfile[rs2]
+    elif funct3 == Funct3.BLT:
+      cond = regfile[rs1] < regfile[rs2]
+    elif funct3 == Funct3.BGE:
+      cond = regfile[rs1] >= regfile[rs2]
     else:
       dump()
       raise Exception("write %r funct3 %r" % (opcode, funct3))
@@ -189,18 +206,39 @@ def step():
     addr = regfile[rs1] + offset
     value = regfile[rs2]
     print("STORE %8x = %x" % (addr, value))
-  elif opcode == Ops.SYSTEM:
+  elif opcode == Ops.MISC:
     pass
+  elif opcode == Ops.SYSTEM:
+    funct3 = Funct3(gibi(14, 12))
+    rd = gibi(11, 7)
+    rs1 = gibi(19, 15)
+    csr = gibi(31, 20)
+    if funct3 == Funct3.CSRRS:
+      print("CSRRS", rd, rs1, csr)
+    elif funct3 == Funct3.CSRRW:
+      print("CSRRW", rd, rs1, csr)
+      if csr == 3072:
+        return False
+    elif funct3 == Funct3.CSRRWI:
+      print("CSRRWI", rd, rs1, csr)
+    elif funct3 == Funct3.ECALL:
+      print("ecall", regfile[3])
+      if regfile[3] == 21:
+        raise Exception("FAILURE IN TEST, PLZ CHECK")
+      #return False
+    else:
+      raise Exception("write more csr crap")
   else:
     dump()
     raise Exception("write op %r" % opcode)
 
+  dump()
   regfile[PC] += 4
   return True
 
 
 if __name__ == "__main__":
-  for x in glob.glob("riscv-tests/isa/rv32ui-*"):
+  for x in glob.glob("riscv-tests/isa/rv32ui-p-add*"):
     if x.endswith('.dump'):
       continue
     with open(x, 'rb') as f:
