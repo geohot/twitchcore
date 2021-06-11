@@ -170,9 +170,10 @@ def step():
   funct7 = gibi(31, 25)
   npc = regfile[PC] + 4
   imm_i = gibi(31, 20)
+  imm_s = gibi(31, 25)<<5 | gibi(11, 7)
+  imm_b = (gibi(32, 31)<<12) | (gibi(30, 25)<<5) | (gibi(11, 8)<<1) | (gibi(8, 7)<<11)
   imm_u = gibi(31, 12)
   imm_j = (gibi(32, 31)<<20) | (gibi(30, 21)<<1) | (gibi(21, 20)<<11) | (gibi(19, 12)<<12)
-  imm_b = (gibi(32, 31)<<12) | (gibi(30, 25)<<5) | (gibi(11, 8)<<1) | (gibi(8, 7)<<11)
 
   # register reads
   vs1 = regfile[gibi(19, 15)]
@@ -193,43 +194,33 @@ def step():
     # I-type instruction
     pend = vpc + 4
     npc = vs1 + sign_extend(imm_i, 12)
+  elif opcode == Ops.BRANCH:
+    # B-type instruction
+    if cond(funct3, vs1, vs2):
+      npc = vpc + sign_extend(imm_b, 13)
   elif opcode == Ops.AUIPC:
     # U-type instruction
     pend = arith(Funct3.ADD, vpc, sign_extend(imm_u << 12, 32), False)
   elif opcode == Ops.LUI:
     # U-type instruction
-    pend = imm_u << 12
+    pend = sign_extend(imm_u << 12, 32)
   elif opcode == Ops.OP:
     # R-type instruction
     pend = arith(funct3, vs1, vs2, funct7 == 0b0100000)
   elif opcode == Ops.IMM:
     # I-type instruction
     pend = arith(funct3, vs1, sign_extend(imm_i, 12), funct7 == 0b0100000 and funct3 == Funct3.SRAI)
-  elif opcode == Ops.BRANCH:
-    # B-type instruction
-    if cond(funct3, vs1, vs2):
-      npc = vpc + sign_extend(imm_b, 13)
   elif opcode == Ops.MISC:
     pass
   elif opcode == Ops.SYSTEM:
     # I-type instruction
-    if funct3 == Funct3.CSRRS:
-      #print("CSRRS", rd, rs1, imm_i)
-      pass
-    elif funct3 == Funct3.CSRRW:
-      #print("CSRRW", rd, rs1, imm_)
-      # actual exit
-      if imm_i == 3072:
-        return False
-    elif funct3 == Funct3.CSRRWI:
-      #print("CSRRWI", rd, rs1, imm_i)
-      pass
+    if funct3 == Funct3.CSRRW and imm_i == 3072:
+      # hack for test exit
+      return False
     elif funct3 == Funct3.ECALL:
       print("ecall", regfile[3])
       if regfile[3] > 1:
         raise Exception("FAILURE IN TEST, PLZ CHECK")
-    else:
-      raise Exception("write more csr crap")
   # Memory access step
   elif opcode == Ops.LOAD:
     # I-type instruction
@@ -246,8 +237,7 @@ def step():
       pend = r32(addr)&0xFFFF
   elif opcode == Ops.STORE:
     # S-type instruction
-    offset = gibi(31, 25)<<5 | gibi(11, 7)
-    addr = vs1 + sign_extend(offset, 12)
+    addr = vs1 + sign_extend(imm_s, 12)
     if funct3 == Funct3.SB:
       ws(addr, struct.pack("B", vs2&0xFF))
     elif funct3 == Funct3.SH:
