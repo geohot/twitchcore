@@ -177,9 +177,6 @@ def step():
 
   # register write set up
   rd = gibi(11, 7)
-  reg_writeback = opcode in [Ops.JAL, Ops.JALR, Ops.AUIPC, Ops.LUI, Ops.OP, Ops.IMM, Ops.LOAD]
-  do_load = opcode == Ops.LOAD
-  do_store = opcode == Ops.STORE
 
   # register reads
   vs1 = regfile[gibi(19, 15)]
@@ -187,20 +184,23 @@ def step():
   vpc = regfile[PC]
 
   # *** Execute ***
+  reg_writeback = opcode in [Ops.JAL, Ops.JALR, Ops.AUIPC, Ops.LUI, Ops.OP, Ops.IMM, Ops.LOAD]
+  do_load = opcode == Ops.LOAD
+  do_store = opcode == Ops.STORE
+
   alt = (funct7 == 0b0100000) and (opcode == Ops.OP or (opcode == Ops.IMM and funct3 == Funct3.SRAI))
-  lookup = {Ops.JAL: imm_j, Ops.JALR: imm_i, Ops.BRANCH: imm_b, Ops.AUIPC: imm_u,
-            Ops.LUI: imm_u, Ops.OP: vs2, Ops.IMM: imm_i, Ops.LOAD: imm_i, Ops.STORE: imm_s,
-            Ops.SYSTEM: imm_i, Ops.MISC: imm_i}
-  imm = lookup[opcode]
-  vs1r = vpc if opcode in [Ops.JAL, Ops.BRANCH, Ops.AUIPC] else (0 if opcode == Ops.LUI else vs1)
+  imm = {Ops.JAL: imm_j, Ops.JALR: imm_i, Ops.BRANCH: imm_b, Ops.AUIPC: imm_u,
+         Ops.LUI: imm_u, Ops.OP: vs2, Ops.IMM: imm_i, Ops.LOAD: imm_i, Ops.STORE: imm_s,
+         Ops.SYSTEM: imm_i, Ops.MISC: imm_i}[opcode]
+  arith_left = vpc if opcode in [Ops.JAL, Ops.BRANCH, Ops.AUIPC] else (0 if opcode == Ops.LUI else vs1)
   arith_func = funct3 if opcode in [Ops.OP, Ops.IMM] else Funct3.ADD
   pend_is_new_pc = opcode in [Ops.JAL, Ops.JALR] or (opcode == Ops.BRANCH and cond(funct3, vs1, vs2))
-  pend = arith(arith_func, vs1r, imm, alt)
+  pend = arith(arith_func, arith_left, imm, alt)
 
   if opcode == Ops.SYSTEM:
     # I-type instruction
     if funct3 == Funct3.ECALL:
-      print("ecall", regfile[3])
+      print("  ecall", regfile[3])
       if regfile[3] > 1:
         raise Exception("FAILURE IN TEST, PLZ CHECK")
       elif regfile[3] == 1:
@@ -253,6 +253,8 @@ if __name__ == "__main__":
         dat = binascii.hexlify(memory)
         g.write(b'\n'.join([dat[i:i+8] for i in range(0,len(dat),8)]))
       regfile[PC] = 0x80000000
+      inscnt = 0
       while step():
-        pass
+        inscnt += 1
+      print("  ran %d instructions" % inscnt)
 
