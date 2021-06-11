@@ -295,8 +295,6 @@ if __name__ == "__main__":
   for x in glob.glob("riscv-tests/isa/rv32ui-p-*"):
     if x.endswith('.dump'):
       continue
-    if 'fence_i' in x:
-      continue
     with open(x, 'rb') as f:
       reset()
       print("test", x)
