@@ -106,9 +106,9 @@ def arith(funct3, x, y):
   if funct3 == Funct3.ADDI:
     return x+y
   elif funct3 == Funct3.SLLI:
-    return x<<y
+    return x<<(y&0x1f)
   elif funct3 == Funct3.SRLI:
-    return x>>y
+    return x>>(y&0x1f)
   elif funct3 == Funct3.ORI:
     return x|y
   elif funct3 == Funct3.XORI:
@@ -118,7 +118,7 @@ def arith(funct3, x, y):
   elif funct3 == Funct3.SLT:
     return int(sign_extend(x, 32) < sign_extend(y, 32))
   elif funct3 == Funct3.SLTU:
-    return int(x < y)
+    return int(x&0xFFFFFFFF < y&0xFFFFFFFF)
   else:
     dump()
     raise Exception("write arith funct3 %r" % funct3)
@@ -146,8 +146,9 @@ def step():
     rd = gibi(11, 7)
     rs1 = gibi(19, 15)
     imm = sign_extend(gibi(31, 20), 12)
-    regfile[rd] = regfile[PC] + 4
+    nv = regfile[PC] + 4
     regfile[PC] = regfile[rs1] + imm
+    regfile[rd] = nv
     return True
   elif opcode == Ops.LUI:
     rd = gibi(11, 7)
@@ -157,8 +158,8 @@ def step():
   elif opcode == Ops.AUIPC:
     # U-type instruction
     rd = gibi(11, 7)
-    imm = gibi(31, 20)
-    regfile[rd] = regfile[PC] + imm
+    imm = gibi(31, 12)
+    regfile[rd] = regfile[PC] + sign_extend(imm << 12, 32)
   elif opcode == Ops.OP:
     # R-type instruction
     rd = gibi(11, 7)
@@ -169,6 +170,13 @@ def step():
     if funct3 == Funct3.ADD and funct7 == 0b0100000:
       # this is sub
       regfile[rd] = regfile[rs1] - regfile[rs2]
+    elif funct3 == Funct3.SRA and funct7 == 0b0100000:
+      # this is srai
+      shift = regfile[rs2] & 0x1F
+      sb = regfile[rs1] >> 31
+      out = regfile[rs1] >> shift
+      out |= (0xFFFFFFFF * sb) << (32-shift)
+      regfile[rd] = out
     else:
       regfile[rd] = arith(funct3, regfile[rs1], regfile[rs2])
   elif opcode == Ops.IMM:
@@ -177,8 +185,16 @@ def step():
     rs1 = gibi(19, 15)
     funct3 = Funct3(gibi(14, 12))
     imm = sign_extend(gibi(31, 20), 12)
+    funct7 = gibi(31, 25)
     #print(rd, rs1, funct3, imm)
-    regfile[rd] = arith(funct3, regfile[rs1], imm)
+    if funct3 == Funct3.SRAI and funct7 == 0b0100000:
+      # this is srai
+      sb = regfile[rs1] >> 31
+      out = regfile[rs1] >> gibi(24, 20)
+      out |= (0xFFFFFFFF * sb) << (32-gibi(24, 20))
+      regfile[rd] = out
+    else:
+      regfile[rd] = arith(funct3, regfile[rs1], imm)
   elif opcode == Ops.BRANCH:
     # B-type instruction
     rs1 = gibi(19, 15)
@@ -259,7 +275,10 @@ if __name__ == "__main__":
   for x in glob.glob("riscv-tests/isa/rv32ui-p-*"):
     if x.endswith('.dump'):
       continue
-    if 'fence_i' in x or '-sh' in x:
+    if 'fence_i' in x:
+      continue
+    # TODO: loads and stores
+    if '-sh' in x or '-lbu' in x or '-lhu' in x or '-lh' in x or '-sb' in x or '-sw' in x or '-lb' in x or '-lw' in x: 
       continue
     with open(x, 'rb') as f:
       reset()
