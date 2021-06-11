@@ -138,54 +138,51 @@ def step():
   # Instruction Decode
   opcode = Ops(gibi(6, 0))
   npc = regfile[PC] + 4
+
+  rd = gibi(11, 7)
+  pend = None
   #print("%x %8x %r" % (regfile[PC], ins, opcode))
 
   if opcode == Ops.JAL:
     # J-type instruction
-    rd = gibi(11, 7)
     offset = (gibi(32, 31)<<20) | (gibi(30, 21)<<1) | (gibi(21, 20)<<11) | (gibi(19, 12)<<12)
     offset = sign_extend(offset, 21)
-    regfile[rd] = regfile[PC] + 4
+    pend = regfile[PC] + 4
     npc = regfile[PC] + offset
   elif opcode == Ops.JALR:
     # I-type instruction
-    rd = gibi(11, 7)
     rs1 = gibi(19, 15)
     imm = sign_extend(gibi(31, 20), 12)
     npc = regfile[rs1] + imm
-    regfile[rd] = regfile[PC] + 4
+    pend = regfile[PC] + 4
   elif opcode == Ops.LUI:
     # U-type instruction
-    rd = gibi(11, 7)
     imm = gibi(31, 12)
-    regfile[rd] = imm << 12
+    pend = imm << 12
   elif opcode == Ops.AUIPC:
     # U-type instruction
-    rd = gibi(11, 7)
     imm = gibi(31, 12)
-    regfile[rd] = regfile[PC] + sign_extend(imm << 12, 32)
+    pend = regfile[PC] + sign_extend(imm << 12, 32)
   elif opcode == Ops.OP:
     # R-type instruction
-    rd = gibi(11, 7)
     rs1 = gibi(19, 15)
     rs2 = gibi(24, 20)
     funct3 = Funct3(gibi(14, 12))
     funct7 = gibi(31, 25)
     if funct3 == Funct3.ADD and funct7 == 0b0100000:
       # this is sub
-      regfile[rd] = regfile[rs1] - regfile[rs2]
+      pend = regfile[rs1] - regfile[rs2]
     elif funct3 == Funct3.SRA and funct7 == 0b0100000:
       # this is srai
       shift = regfile[rs2] & 0x1F
       sb = regfile[rs1] >> 31
       out = regfile[rs1] >> shift
       out |= (0xFFFFFFFF * sb) << (32-shift)
-      regfile[rd] = out
+      pend = out
     else:
-      regfile[rd] = arith(funct3, regfile[rs1], regfile[rs2])
+      pend = arith(funct3, regfile[rs1], regfile[rs2])
   elif opcode == Ops.IMM:
     # I-type instruction
-    rd = gibi(11, 7)
     rs1 = gibi(19, 15)
     funct3 = Funct3(gibi(14, 12))
     imm = sign_extend(gibi(31, 20), 12)
@@ -226,21 +223,20 @@ def step():
       npc = regfile[PC] + offset
   elif opcode == Ops.LOAD:
     # I-type instruction
-    rd = gibi(11, 7)
     rs1 = gibi(19, 15)
     funct3 = Funct3(gibi(14, 12))
     imm = sign_extend(gibi(31, 20), 12)
     addr = regfile[rs1] + imm
     if funct3 == Funct3.LB:
-      regfile[rd] = sign_extend(r32(addr)&0xFF, 8)
+      pend = sign_extend(r32(addr)&0xFF, 8)
     elif funct3 == Funct3.LH:
-      regfile[rd] = sign_extend(r32(addr)&0xFFFF, 16)
+      pend = sign_extend(r32(addr)&0xFFFF, 16)
     elif funct3 == Funct3.LW:
-      regfile[rd] = r32(addr)
+      pend = r32(addr)
     elif funct3 == Funct3.LBU:
-      regfile[rd] = r32(addr)&0xFF
+      pend = r32(addr)&0xFF
     elif funct3 == Funct3.LHU:
-      regfile[rd] = r32(addr)&0xFFFF
+      pend = r32(addr)&0xFFFF
   elif opcode == Ops.STORE:
     # S-type instruction
     rs1 = gibi(19, 15)
@@ -259,7 +255,6 @@ def step():
     pass
   elif opcode == Ops.SYSTEM:
     funct3 = Funct3(gibi(14, 12))
-    rd = gibi(11, 7)
     rs1 = gibi(19, 15)
     csr = gibi(31, 20)
     if funct3 == Funct3.CSRRS:
@@ -284,6 +279,8 @@ def step():
     raise Exception("write op %r" % opcode)
 
   # Register write back
+  if pend is not None:
+    regfile[rd] = pend
   regfile[PC] = npc
   return True
 
