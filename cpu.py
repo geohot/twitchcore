@@ -65,6 +65,12 @@ class Funct3(Enum):
   BLTU = 0b110
   BGEU = 0b111
 
+  LB = SB = 0b000
+  LH = SH = 0b001
+  LW = SW = 0b010
+  LBU = 0b100
+  LHU = 0b101
+
   # stupid instructions below this line
   ECALL = 0b000
   CSRRW = 0b001
@@ -75,7 +81,7 @@ class Funct3(Enum):
   CSRRCI = 0b111
 
 
-def ws(dat, addr):
+def ws(addr, dat):
   global memory
   #print(hex(addr), len(dat))
   addr -= 0x80000000
@@ -228,16 +234,30 @@ def step():
     funct3 = Funct3(gibi(14, 12))
     imm = sign_extend(gibi(31, 20), 12)
     addr = regfile[rs1] + imm
-    print("LOAD %8x" % addr)
+    if funct3 == Funct3.LB:
+      regfile[rd] = sign_extend(r32(addr)&0xFF, 8)
+    elif funct3 == Funct3.LH:
+      regfile[rd] = sign_extend(r32(addr)&0xFFFF, 16)
+    elif funct3 == Funct3.LW:
+      regfile[rd] = r32(addr)
+    elif funct3 == Funct3.LBU:
+      regfile[rd] = r32(addr)&0xFF
+    elif funct3 == Funct3.LHU:
+      regfile[rd] = r32(addr)&0xFFFF
   elif opcode == Ops.STORE:
     # S-type instruction
     rs1 = gibi(19, 15)
     rs2 = gibi(24, 20)
-    width = gibi(14, 12)
+    funct3 = Funct3(gibi(14, 12))
     offset = sign_extend(gibi(31, 25)<<5 | gibi(11, 7), 12)
     addr = regfile[rs1] + offset
     value = regfile[rs2]
-    print("STORE %8x = %x" % (addr, value))
+    if funct3 == Funct3.SB:
+      ws(addr, struct.pack("B", value&0xFF))
+    elif funct3 == Funct3.SH:
+      ws(addr, struct.pack("H", value&0xFFFF))
+    elif funct3 == Funct3.SW:
+      ws(addr, struct.pack("I", value))
   elif opcode == Ops.MISC:
     pass
   elif opcode == Ops.SYSTEM:
@@ -277,15 +297,12 @@ if __name__ == "__main__":
       continue
     if 'fence_i' in x:
       continue
-    # TODO: loads and stores
-    if '-sh' in x or '-lbu' in x or '-lhu' in x or '-lh' in x or '-sb' in x or '-sw' in x or '-lb' in x or '-lw' in x: 
-      continue
     with open(x, 'rb') as f:
       reset()
       print("test", x)
       e = ELFFile(f)
       for s in e.iter_segments():
-        ws(s.data(), s.header.p_paddr)
+        ws(s.header.p_paddr, s.data())
       regfile[PC] = 0x80000000
       while step():
         pass
