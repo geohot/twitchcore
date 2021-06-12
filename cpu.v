@@ -76,8 +76,9 @@ module ram (
   input [31:0] dw_data,
   input dw_en);
 
+  // 16 KB
   reg [31:0] mem [0:4095];
-  initial $readmemh("test-cache/rv32ui-p-sh", mem);
+  initial $readmemh("test-cache/rv32ui-p-lb", mem);
 
   always @(posedge clk) begin
     i_data <= mem[i_addr[13:2]];
@@ -291,12 +292,17 @@ module twitchcore (
       pc <= pend_is_new_pc ? pend : (vpc + 4);
       if (reg_writeback && rd != 4'b0000) begin
         if (do_load) begin
+          // support some unaligned loads, but can't break word boundary
           case (funct3)
-            3'b000: regs[rd] <= {{24{d_data[7]}}, d_data[7:0]};
-            3'b001: regs[rd] <= {{16{d_data[15]}}, d_data[15:0]};
+            3'b000: regs[rd] <=
+              pend[1] ? (pend[0] ? {{24{d_data[31]}}, d_data[31:24]} : {{24{d_data[23]}}, d_data[23:16]}) :
+                        (pend[0] ? {{24{d_data[15]}}, d_data[15:8]}  : {{24{d_data[7]}}, d_data[7:0]});
+            3'b001: regs[rd] <= pend[1] ? {{16{d_data[31]}}, d_data[31:16]} : {{16{d_data[15]}}, d_data[15:0]};
             3'b010: regs[rd] <= d_data;
-            3'b100: regs[rd] <= {24'b0, d_data[7:0]};
-            3'b101: regs[rd] <= {16'b0, d_data[15:0]};
+            3'b100: regs[rd] <=
+              pend[1] ? (pend[0] ? {24'b0, d_data[31:24]} : {24'b0, d_data[23:16]}) :
+                        (pend[0] ? {24'b0, d_data[15:8]}  : {24'b0, d_data[7:0]});
+            3'b101: regs[rd] <= pend[1] ? {16'b0, d_data[31:16]} : {16'b0, d_data[15:0]};
           endcase
         end else begin
           regs[rd] <= (pend_is_new_pc ? (vpc + 4) : pend);
