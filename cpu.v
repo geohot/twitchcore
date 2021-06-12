@@ -1,4 +1,4 @@
-module arith (
+module alu (
   input clk,
   input [2:0] funct3,
   input [31:0] x,
@@ -94,9 +94,9 @@ module twitchcore (
   wire [31:0] imm_u = {ins[31:12], 12'b0};
   wire [31:0] imm_j = {{11{ins[31]}}, ins[31], ins[19:12], ins[20], ins[30:21], 1'b0};
 
-  reg [31:0] arith_left;
-  reg [2:0] arith_func;
-  reg arith_alt;
+  reg [31:0] alu_left;
+  reg [2:0] alu_func;
+  reg alu_alt;
   reg [31:0] imm;
 
   wire [31:0] pend;
@@ -112,12 +112,12 @@ module twitchcore (
   reg step_4;
   reg step_5;
 
-  arith a (
+  alu a (
     .clk (clk),
-    .funct3 (arith_func),
-    .x (arith_left),
+    .funct3 (alu_func),
+    .x (alu_left),
     .y (imm),
-    .alt (arith_alt),
+    .alt (alu_alt),
     .out (pend)
   );
 
@@ -154,15 +154,15 @@ module twitchcore (
     vpc <= pc;
     rd <= ins[11:7];
 
-    arith_func <= 3'b000;
-    arith_left <= vs1;
-    arith_alt <= 1'b0;
+    alu_func <= 3'b000;
+    alu_left <= vs1;
+    alu_alt <= 1'b0;
     update_pc <= 2'b00;
     reg_writeback <= 1'b0;
     case (opcode)
       7'b0110111: begin // LUI
         imm <= imm_u;
-        arith_left <= 32'b0;
+        alu_left <= 32'b0;
         reg_writeback <= 1'b1;
       end
       7'b0000011: begin // LOAD
@@ -175,17 +175,17 @@ module twitchcore (
 
       7'b0010111: begin // AUIPC
         imm <= imm_u;
-        arith_left <= pc;
+        alu_left <= pc;
         reg_writeback <= 1'b1;
       end
       7'b1100011: begin // BRANCH
         imm <= imm_b;
-        arith_left <= pc;
+        alu_left <= pc;
         update_pc <= 2'b10;
       end
       7'b1101111: begin // JAL
         imm <= imm_j;
-        arith_left <= pc;
+        alu_left <= pc;
         update_pc <= 2'b01;
         reg_writeback <= 1'b1;
       end
@@ -197,14 +197,14 @@ module twitchcore (
 
       7'b0010011: begin // IMM
         imm <= imm_i;
-        arith_func <= funct3;
-        arith_alt <= (funct7 == 7'b0100000 && funct3 == 3'b101);
+        alu_func <= funct3;
+        alu_alt <= (funct7 == 7'b0100000 && funct3 == 3'b101);
         reg_writeback <= 1'b1;
       end
       7'b0110011: begin // OP
         imm <= regs[ins[24:20]];
-        arith_func <= funct3;
-        arith_alt <= (funct7 == 7'b0100000);
+        alu_func <= funct3;
+        alu_alt <= (funct7 == 7'b0100000);
         reg_writeback <= 1'b1;
       end
       7'b1110011: begin // SYSTEM

@@ -27,7 +27,7 @@ module testbench;
 
   always @(posedge c.step_5) begin
     $display("asd %h %d pc:%h -- opcode:%b -- func:%h alt:%d left:%h imm:%h pend:%h pend_is_new_pc:%d trap:%d",
-      c.ins, c.resetn, c.pc, c.opcode, c.arith_func, c.arith_alt, c.arith_left, c.imm, c.pend, c.pend_is_new_pc, c.trap);
+      c.ins, c.resetn, c.pc, c.opcode, c.alu_func, c.alu_alt, c.alu_left, c.imm, c.pend, c.pend_is_new_pc, c.trap);
   end
 
   always @(posedge trap) begin
