@@ -100,8 +100,8 @@ module twitchcore (
   reg [31:0] imm;
 
   wire [31:0] pend;
-  wire pend_is_new_pc_cond;
-  reg pend_is_new_pc;
+  wire cond_out;
+  reg [1:0] update_pc;  // 2'b00: don't update, 2'b01: update always, 2'b10: update cond
   reg reg_writeback;
 
   reg step_1;
@@ -124,7 +124,7 @@ module twitchcore (
     .funct3 (funct3),
     .x (vs1),
     .y (vs2),
-    .out (pend_is_new_pc_cond)
+    .out (cond_out)
   );
 
   //$dumpfile("test.vcd");
@@ -155,7 +155,7 @@ module twitchcore (
     arith_func <= 3'b000;
     arith_left <= vs1;
     arith_alt <= 1'b0;
-    pend_is_new_pc <= 1'b0;
+    update_pc <= 2'b00;
     reg_writeback <= 1'b0;
     case (opcode)
       7'b0110111: begin // LUI
@@ -178,18 +178,17 @@ module twitchcore (
       7'b1100011: begin // BRANCH
         imm <= imm_b;
         arith_left <= pc;
-        // this is in the wrong place in the pipeline
-        pend_is_new_pc <= pend_is_new_pc_cond;
+        update_pc <= 2'b10;
       end
       7'b1101111: begin // JAL
         imm <= imm_j;
         arith_left <= pc;
-        pend_is_new_pc <= 1'b1;
+        update_pc <= 2'b01;
         reg_writeback <= 1'b1;
       end
       7'b1100111: begin // JALR
         imm <= imm_i;
-        pend_is_new_pc <= 1'b1;
+        update_pc <= 2'b01;
         reg_writeback <= 1'b1;
       end
 
@@ -210,16 +209,17 @@ module twitchcore (
       end
     endcase
 
-    // *** Execute (happens above) ***
+    // *** Execute (happens above in arith and cond) ***
     step_4 <= step_3;
+    // set pend and cond here
 
     // *** Memory access (later) ***
     step_5 <= step_4;
   end
 
   // *** Register Writeback ***
+  wire pend_is_new_pc = update_pc[0] || (update_pc[1] && cond_out);
   always @(posedge step_5) begin
-    $display("asd %h %d pc:%h -- opcode:%b -- func:%h left:%h imm:%h pend:%h pend_is_new_pc:%d trap:%d", ins, resetn, pc, opcode, arith_func, arith_left, imm, pend, pend_is_new_pc, trap);
     pc <= pend_is_new_pc ? pend : (vpc + 4);
     regs[rd] <= (reg_writeback && rd != 4'b0000) ? (pend_is_new_pc ? (vpc + 4) : pend) : regs[rd];
     step_1 <= 1'b1;
@@ -258,6 +258,11 @@ module testbench;
     .trap (trap)
   );
 
+  always @(posedge c.step_5) begin
+    $display("asd %h %d pc:%h -- opcode:%b -- func:%h left:%h imm:%h pend:%h pend_is_new_pc:%d trap:%d",
+      c.ins, c.resetn, c.pc, c.opcode, c.arith_func, c.arith_left, c.imm, c.pend, c.pend_is_new_pc, c.trap);
+  end
+
   always @(posedge trap) begin
     $display("TRAP", c.regs[3]);
     $finish;
@@ -269,5 +274,4 @@ module testbench;
     $finish;
   end
 endmodule
-
 
