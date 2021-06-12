@@ -74,37 +74,34 @@ module ram (
   input [13:0] d_addr,
   output reg [31:0] d_data,
   input [31:0] dw_data,
-  input dw_en);
+  input [1:0] dw_size);
 
   // 16 KB
   reg [31:0] mem [0:4095];
-  initial $readmemh("test-cache/rv32ui-p-lb", mem);
+  initial $readmemh("test-cache/rv32ui-p-sw", mem);
+  wire [31:0] dt_data = mem[d_addr[13:2]];
 
   always @(posedge clk) begin
     // always aligned for instruction fetch
     i_data <= mem[i_addr[13:2]];
     // misaligned data, but it's filled with 0s
     d_data <=
-      d_addr[1] ? (d_addr[0] ? (mem[d_addr[13:2]] >> 24) : (mem[d_addr[13:2]] >> 16))
-                : (d_addr[0] ? (mem[d_addr[13:2]] >> 8) : (mem[d_addr[13:2]]));
-    if (dw_en) begin
-      mem[d_addr[13:2]] <= dw_data;
-    end
+      d_addr[1] ? (d_addr[0] ? (dt_data >> 24) : (dt_data >> 16))
+                : (d_addr[0] ? (dt_data >> 8) : dt_data);
+    // 2'b01 = 8-bit
+    // 2'b10 = 16-bit
+    // 2'b11 = 32-bit
+    case (dw_size)
+      2'b11: mem[d_addr[13:2]] <= dw_data;
+      2'b10: mem[d_addr[13:2]] <= 
+        d_addr[1] ? {dw_data[15:0], dt_data[15:0]} : 
+                    {dt_data[31:16], dw_data[15:0]};
+      2'b01: mem[d_addr[13:2]] <= 
+        d_addr[1] ?
+          (d_addr[0] ? {dw_data[7:0], dt_data[23:0]} : {dt_data[31:24], dw_data[7:0], dt_data[15:0]}) :
+          (d_addr[0] ? {dt_data[31:16], dw_data[7:0], dt_data[7:0]} : {dt_data[31:8], dw_data[7:0]});
+    endcase
   end
-
-  /*reg [7:0] mem [0:16383];
-  initial $readmemh("test-cache/rv32ui-p-sh", mem);
-
-  always @(posedge clk) begin
-    i_data <= {mem[i_addr+3], mem[i_addr+2], mem[i_addr+1], mem[i_addr]};
-    d_data <= {mem[d_addr+3], mem[d_addr+2], mem[d_addr+1], mem[d_addr]};
-    if (dw_en) begin
-      mem[d_addr] <= dw_data[7:0];
-      mem[d_addr+1] <= dw_data[15:8];
-      mem[d_addr+2] <= dw_data[23:16];
-      mem[d_addr+3] <= dw_data[31:24];
-    end
-  end*/
 endmodule
 
 // twitchcore is a low performance RISC-V processor
@@ -119,7 +116,7 @@ module twitchcore (
   wire [13:0] d_addr;
   wire [31:0] d_data;
   reg [31:0] dw_data;
-  reg dw_en;
+  reg [1:0] dw_size;
   ram r (
     .clk (clk),
     .i_data (i_data),
@@ -127,7 +124,7 @@ module twitchcore (
     .d_data (d_data),
     .d_addr (d_addr),
     .dw_data (dw_data),
-    .dw_en (dw_en)
+    .dw_size (dw_size)
   );
 
   reg [31:0] regs [0:31];
@@ -287,7 +284,7 @@ module twitchcore (
     // this sets d_data based on pend
     if (step_5 == 1'b1 && do_store) begin
       dw_data <= vs2;
-      dw_en <= 1'b1;
+      dw_size <= (funct3[1:0] + 1);
     end
     
     // *** Register Writeback ***
@@ -314,7 +311,7 @@ module twitchcore (
       step_4 <= 1'b0;
       step_5 <= 1'b0;
       step_6 <= 1'b0;
-      dw_en <= 1'b0;
+      dw_size <= 2'b00;
     end
   end
 
