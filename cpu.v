@@ -71,7 +71,7 @@ endmodule
 module twitchcore (
   input clk, resetn,
   output reg trap,
-	output reg [31:0] pc
+  output reg [31:0] pc
 );
   reg [31:0] rom [0:4095];
   initial $readmemh("test-cache/rv32ui-p-sub", rom);
@@ -218,17 +218,17 @@ module twitchcore (
 
     // *** Memory access (later) ***
     step_5 <= step_4;
-		
-		// *** Register Writeback ***
-		if (step_5 == 1'b1) begin
-			pc <= pend_is_new_pc ? pend : (vpc + 4);
-			regs[rd] <= (reg_writeback && rd != 4'b0000) ? (pend_is_new_pc ? (vpc + 4) : pend) : regs[rd];
-			step_1 <= 1'b1;
-			step_2 <= 1'b0;
-			step_3 <= 1'b0;
-			step_4 <= 1'b0;
-			step_5 <= 1'b0;
-		end
+    
+    // *** Register Writeback ***
+    if (step_5 == 1'b1) begin
+      pc <= pend_is_new_pc ? pend : (vpc + 4);
+      regs[rd] <= (reg_writeback && rd != 4'b0000) ? (pend_is_new_pc ? (vpc + 4) : pend) : regs[rd];
+      step_1 <= 1'b1;
+      step_2 <= 1'b0;
+      step_3 <= 1'b0;
+      step_4 <= 1'b0;
+      step_5 <= 1'b0;
+    end
   end
 
 endmodule
