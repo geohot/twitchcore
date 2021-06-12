@@ -75,7 +75,9 @@ module twitchcore (
   input [31:0] i_data,
   output [11:0] i_addr,
   input [31:0] d_data,
-  output [11:0] d_addr
+  output [11:0] d_addr,
+  output reg [31:0] dw_data,
+  output reg dw_en
 );
 
   reg [31:0] regs [0:31];
@@ -186,6 +188,7 @@ module twitchcore (
       7'b0100011: begin // STORE
         imm <= imm_s;
         do_store <= 1'b1;
+        $display("STORE");
       end
 
       7'b0010111: begin // AUIPC
@@ -234,6 +237,10 @@ module twitchcore (
     // *** Memory access (later) ***
     step_5 <= step_4;
     // this sets d_data based on pend
+    if (step_5 == 1'b1 && do_store) begin
+      dw_data <= vs2;
+      dw_en <= 1'b1;
+    end
     
     // *** Register Writeback ***
     step_6 <= step_5;
@@ -258,6 +265,7 @@ module twitchcore (
       step_4 <= 1'b0;
       step_5 <= 1'b0;
       step_6 <= 1'b0;
+      dw_en <= 1'b0;
     end
   end
 

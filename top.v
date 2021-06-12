@@ -20,16 +20,21 @@ module top (
   always @(posedge clk) {clkdiv, ctr} <= ctr + 1'b1;
 
   reg [31:0] mem [0:4095];
-  initial $readmemh("test-cache/rv32ui-p-lw", mem);
+  initial $readmemh("test-cache/rv32ui-p-sw", mem);
 
   wire [11:0] i_addr;
   reg [31:0] i_data;
   wire [11:0] d_addr;
   reg [31:0] d_data;
+  wire [31:0] dw_data;
+  wire dw_en;
 
   always @(posedge clkdiv) begin
     i_data <= mem[i_addr];
     d_data <= mem[d_addr];
+    if (dw_en) begin
+      mem[d_addr] <= dw_data;
+    end
   end
 
   wire [31:0] pc;
@@ -41,7 +46,9 @@ module top (
     .i_data (i_data),
     .i_addr (i_addr),
     .d_data (d_data),
-    .d_addr (d_addr)
+    .d_addr (d_addr),
+    .dw_data (dw_data),
+    .dw_en (dw_en)
   );
 
   // display pc
