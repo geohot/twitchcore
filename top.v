@@ -15,10 +15,13 @@ module top (
 			.O(clk)
 	);  
 
+  reg clkdiv;
+  reg [22:0] ctr;
+  always @(posedge clk) {clkdiv, ctr} <= ctr + 1'b1;
 
   wire [31:0] pc;
   twitchcore tc (
-    .clk (clk),
+    .clk (clkdiv),
     .resetn (sw[0]),
     .trap (led[0]),
     .pc (pc)
