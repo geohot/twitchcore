@@ -78,7 +78,7 @@ module ram (
 
   // 16 KB
   reg [31:0] mem [0:4095];
-  initial $readmemh("test-cache/rv32ui-p-sw", mem);
+  initial $readmemh("test-cache/rv32ui-p-sh", mem);
   wire [31:0] dt_data = mem[d_addr[13:2]];
 
   always @(posedge clk) begin
@@ -113,9 +113,10 @@ module twitchcore (
   output reg [31:0] pc
 );
 
-  wire [13:0] i_addr;
+  //wire [13:0] i_addr = pc[13:0];
+  reg [13:0] i_addr;
   wire [31:0] i_data;
-  wire [13:0] d_addr;
+  reg [13:0] d_addr;
   wire [31:0] d_data;
   reg [31:0] dw_data;
   reg [1:0] dw_size;
@@ -154,7 +155,7 @@ module twitchcore (
   reg alu_alt;
 
   wire [31:0] pend;
-  reg [2:0] cond_func;
+  reg [2:0] funct3_saved;
   wire cond_out;
   reg [1:0] update_pc;  // 2'b00: don't update, 2'b01: update always, 2'b10: update cond
   reg reg_writeback;
@@ -163,12 +164,7 @@ module twitchcore (
   reg do_load;
   reg do_store;
 
-  reg step_1;
-  reg step_2;
-  reg step_3;
-  reg step_4;
-  reg step_5;
-  reg step_6;
+  reg [6:0] step;
 
   alu a (
     .clk (clk),
@@ -181,40 +177,32 @@ module twitchcore (
 
   cond c (
     .clk (clk),
-    .funct3 (cond_func),
+    .funct3 (funct3_saved),
     .x (vs1),
     .y (vs2),
     .out (cond_out)
   );
 
-  assign i_addr = pc[13:0];
-  assign d_addr = pend[13:0];
-
   integer i;
   always @(posedge clk) begin
+    step <= step << 1;
     if (resetn) begin
       pc <= 32'h80000000;
       for (i=0; i<32; i=i+1) regs[i] <= 0;
-      step_1 <= 1'b1;
-      step_2 <= 1'b0;
-      step_3 <= 1'b0;
-      step_4 <= 1'b0;
-      step_5 <= 1'b0;
-      step_6 <= 1'b0;
+      step <= 6'b1;
       trap <= 1'b0;
     end
 
     // *** Instruction Fetch ***
-    step_2 <= step_1;
+    i_addr <= pc[13:0];
     // it sets i_data here from pc
 
     // *** Instruction decode and register fetch ***
-    step_3 <= step_2;
     vs1 <= regs[rs1];
     vs2 <= regs[rs2];
     vpc <= pc;
     rd <= i_data[11:7];
-    cond_func <= funct3;
+    funct3_saved <= funct3;
 
     alu_func <= 3'b000;
     alu_left <= vs1;
@@ -279,24 +267,24 @@ module twitchcore (
     endcase
 
     // *** Execute (happens above in arith and cond) ***
-    step_4 <= step_3;
-    // it sets pend and cond here
+    // it sets pend and cond_out here
 
-    // *** Memory access (later) ***
-    step_5 <= step_4;
+    // *** Memory access ***
     // this sets d_data based on pend
-    if (step_5 == 1'b1 && do_store) begin
-      dw_data <= vs2;
-      dw_size <= (funct3[1:0] + 1);
+    if (step[5] == 1'b1) begin
+      d_addr <= pend[13:0];
+      if (do_store) begin
+        dw_data <= vs2;
+        dw_size <= (funct3_saved[1:0] + 1);
+      end
     end
     
     // *** Register Writeback ***
-    step_6 <= step_5;
-    if (step_6 == 1'b1) begin
+    if (step[6] == 1'b1) begin
       pc <= pend_is_new_pc ? pend : (vpc + 4);
       if (reg_writeback && rd != 4'b0000) begin
         if (do_load) begin
-          case (funct3)
+          case (funct3_saved)
             3'b000: regs[rd] <= {{24{d_data[7]}}, d_data[7:0]};
             3'b001: regs[rd] <= {{16{d_data[15]}}, d_data[15:0]};
             3'b010: regs[rd] <= d_data;
@@ -307,12 +295,7 @@ module twitchcore (
           regs[rd] <= (pend_is_new_pc ? (vpc + 4) : pend);
         end
       end
-      step_1 <= 1'b1;
-      step_2 <= 1'b0;
-      step_3 <= 1'b0;
-      step_4 <= 1'b0;
-      step_5 <= 1'b0;
-      step_6 <= 1'b0;
+      step <= 6'b1;
       dw_size <= 2'b00;
     end
   end
