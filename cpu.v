@@ -73,7 +73,7 @@ module twitchcore (
   output reg trap
 );
   reg [31:0] rom [0:4095];
-  initial $readmemh("test-cache/rv32ui-p-add", rom);
+  initial $readmemh("test-cache/rv32ui-p-sub", rom);
 
   reg [31:0] regs [0:31];
   reg [31:0] pc;
@@ -127,7 +127,6 @@ module twitchcore (
     .out (cond_out)
   );
 
-  //$dumpfile("test.vcd");
   integer i;
   always @(negedge resetn) begin
     pc <= 32'h80000000;
@@ -160,6 +159,7 @@ module twitchcore (
     case (opcode)
       7'b0110111: begin // LUI
         imm <= imm_u;
+        arith_left <= 32'b0;
         reg_writeback <= 1'b1;
       end
       7'b0000011: begin // LOAD
@@ -259,8 +259,8 @@ module testbench;
   );
 
   always @(posedge c.step_5) begin
-    $display("asd %h %d pc:%h -- opcode:%b -- func:%h left:%h imm:%h pend:%h pend_is_new_pc:%d trap:%d",
-      c.ins, c.resetn, c.pc, c.opcode, c.arith_func, c.arith_left, c.imm, c.pend, c.pend_is_new_pc, c.trap);
+    $display("asd %h %d pc:%h -- opcode:%b -- func:%h alt:%d left:%h imm:%h pend:%h pend_is_new_pc:%d trap:%d",
+      c.ins, c.resetn, c.pc, c.opcode, c.arith_func, c.arith_alt, c.arith_left, c.imm, c.pend, c.pend_is_new_pc, c.trap);
   end
 
   always @(posedge trap) begin
