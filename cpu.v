@@ -51,7 +51,6 @@ module cond (
       3'b001: begin  // BNE
         out <= x != y;
       end
-      // TODO: fix signed
       3'b100: begin  // BLT
         out <= $signed(x) < $signed(y);
       end
@@ -212,10 +211,11 @@ module twitchcore (
     step_5 <= step_4;
   end
 
+  // *** Register Writeback ***
   always @(posedge step_5) begin
-    pc <= pend_is_new_pc ? pend : (vpc + 4);
-    regs[rd] <= reg_writeback ? (pend_is_new_pc ? (vpc + 4) : pend) : regs[rd];
     $display("asd %h %d pc:%h -- opcode:%h -- func:%h left:%h imm:%h pend:%h", ins, resetn, pc, opcode, arith_func, arith_left, imm, pend);
+    pc <= pend_is_new_pc ? pend : (vpc + 4);
+    regs[rd] <= (reg_writeback && rd != 4'b0000) ? (pend_is_new_pc ? (vpc + 4) : pend) : regs[rd];
     step_1 <= 1'b1;
     step_2 <= 1'b0;
     step_3 <= 1'b0;
@@ -251,8 +251,8 @@ module testbench;
   );
 
   initial begin
-    #3200
-    $display("no more work", cnt);
+    #10000
+    $display("no more work ", cnt);
     $finish;
   end
 endmodule
