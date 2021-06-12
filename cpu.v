@@ -142,7 +142,7 @@ module twitchcore (
   always @(posedge clk) begin
     // *** Instruction Fetch ***
     step_2 <= step_1;
-    ins <= rom[pc[30:0]];
+    ins <= rom[pc[30:2]];
 
     // *** Instruction decode and register fetch ***
     step_3 <= step_2;
@@ -251,7 +251,7 @@ module testbench;
   );
 
   initial begin
-    #500
+    #3200
     $display("no more work", cnt);
     $finish;
   end
