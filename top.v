@@ -15,12 +15,16 @@ module top (
 			.O(clk)
 	);  
 
+
+  wire [31:0] pc;
   twitchcore tc (
     .clk (clk),
     .resetn (sw[0]),
-    .trap (led[0])
+    .trap (led[0]),
+    .pc (pc)
   );
 
   // display pc
-  assign led[11:1] = tc.pc[10:0];
+  assign led[11:1] = pc[10:0];
 endmodule
+

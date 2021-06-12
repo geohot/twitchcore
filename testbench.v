@@ -36,7 +36,7 @@ module testbench;
   end
 
   initial begin
-    #21000
+    #50000
     $display("no more work ", cnt);
     $finish;
   end

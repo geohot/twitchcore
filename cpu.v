@@ -70,13 +70,13 @@ endmodule
 // twitchcore is a low performance RISC-V processor
 module twitchcore (
   input clk, resetn,
-  output reg trap
+  output reg trap,
+	output reg [31:0] pc
 );
   reg [31:0] rom [0:4095];
   initial $readmemh("test-cache/rv32ui-p-sub", rom);
 
   reg [31:0] regs [0:31];
-  reg [31:0] pc;
   reg [3:0] rd;
 
   reg [31:0] ins;
@@ -104,6 +104,8 @@ module twitchcore (
   reg [1:0] update_pc;  // 2'b00: don't update, 2'b01: update always, 2'b10: update cond
   reg reg_writeback;
 
+  wire pend_is_new_pc = update_pc[0] || (update_pc[1] && cond_out);
+
   reg step_1;
   reg step_2;
   reg step_3;
@@ -127,19 +129,20 @@ module twitchcore (
     .out (cond_out)
   );
 
-  integer i;
-  always @(negedge resetn) begin
-    pc <= 32'h80000000;
-    for (i=0; i<32; i=i+1) regs[i] <= 0;
-    step_1 <= 1'b1;
-    step_2 <= 1'b0;
-    step_3 <= 1'b0;
-    step_4 <= 1'b0;
-    step_5 <= 1'b0;
-    trap <= 1'b0;
-  end
 
+  integer i;
   always @(posedge clk) begin
+    if (resetn) begin
+      pc <= 32'h80000000;
+      for (i=0; i<32; i=i+1) regs[i] <= 0;
+      step_1 <= 1'b1;
+      step_2 <= 1'b0;
+      step_3 <= 1'b0;
+      step_4 <= 1'b0;
+      step_5 <= 1'b0;
+      trap <= 1'b0;
+    end
+
     // *** Instruction Fetch ***
     step_2 <= step_1;
     ins <= rom[pc[30:2]];
@@ -215,19 +218,19 @@ module twitchcore (
 
     // *** Memory access (later) ***
     step_5 <= step_4;
+		
+		// *** Register Writeback ***
+		if (step_5 == 1'b1) begin
+			pc <= pend_is_new_pc ? pend : (vpc + 4);
+			regs[rd] <= (reg_writeback && rd != 4'b0000) ? (pend_is_new_pc ? (vpc + 4) : pend) : regs[rd];
+			step_1 <= 1'b1;
+			step_2 <= 1'b0;
+			step_3 <= 1'b0;
+			step_4 <= 1'b0;
+			step_5 <= 1'b0;
+		end
   end
 
-  // *** Register Writeback ***
-  wire pend_is_new_pc = update_pc[0] || (update_pc[1] && cond_out);
-  always @(posedge step_5) begin
-    pc <= pend_is_new_pc ? pend : (vpc + 4);
-    regs[rd] <= (reg_writeback && rd != 4'b0000) ? (pend_is_new_pc ? (vpc + 4) : pend) : regs[rd];
-    step_1 <= 1'b1;
-    step_2 <= 1'b0;
-    step_3 <= 1'b0;
-    step_4 <= 1'b0;
-    step_5 <= 1'b0;
-  end
 endmodule
 
 
