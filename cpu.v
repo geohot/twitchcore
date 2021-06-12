@@ -89,9 +89,9 @@ module twitchcore (
   wire [7:0] funct7 = ins[31:25];
   wire [31:0] imm_i = {{24{ins[31]}}, ins[31:20]};
   wire [31:0] imm_s = {{24{ins[31]}}, ins[31:25], ins[11:7]};
-  wire [31:0] imm_b = {{23{ins[31]}}, ins[31:30], ins[8:7], ins[30:25], ins[11:8], 1'b0};
+  wire [31:0] imm_b = {{23{ins[31]}}, ins[31], ins[7], ins[30:25], ins[11:8], 1'b0};
   wire [31:0] imm_u = {ins[31:12], 12'b0};
-  wire [31:0] imm_j = {{11{ins[31]}}, ins[19:12], ins[21:20], ins[30:21], 1'b0};
+  wire [31:0] imm_j = {{11{ins[31]}}, ins[31], ins[19:12], ins[20], ins[30:21], 1'b0};
 
   reg [31:0] arith_left;
   reg [2:0] arith_func;
@@ -213,7 +213,7 @@ module twitchcore (
 
   // *** Register Writeback ***
   always @(posedge step_5) begin
-    $display("asd %h %d pc:%h -- opcode:%h -- func:%h left:%h imm:%h pend:%h", ins, resetn, pc, opcode, arith_func, arith_left, imm, pend);
+    $display("asd %h %d pc:%h -- opcode:%b -- func:%h left:%h imm:%h pend:%h pend_is_new_pc:%d", ins, resetn, pc, opcode, arith_func, arith_left, imm, pend, pend_is_new_pc);
     pc <= pend_is_new_pc ? pend : (vpc + 4);
     regs[rd] <= (reg_writeback && rd != 4'b0000) ? (pend_is_new_pc ? (vpc + 4) : pend) : regs[rd];
     step_1 <= 1'b1;
