@@ -19,34 +19,14 @@ module testbench;
     resetn <= 0;
   end
 
-  reg [31:0] mem [0:4095];
-  initial $readmemh("test-cache/rv32ui-p-sw", mem);
-
-  wire [11:0] i_addr;
-  reg [31:0] i_data;
-  wire [11:0] d_addr;
-  reg [31:0] d_data;
-  wire [31:0] dw_data;
-  wire dw_en;
 
   twitchcore c (
     .clk (clk),
     .resetn (resetn),
-    .trap (trap),
-    .i_data (i_data),
-    .i_addr (i_addr),
-    .d_data (d_data),
-    .d_addr (d_addr),
-    .dw_data (dw_data),
-    .dw_en (dw_en)
+    .trap (trap)
   );
 
   always @(posedge clk) begin
-    i_data <= mem[i_addr];
-    d_data <= mem[d_addr];
-    if (dw_en) begin
-      mem[d_addr] <= dw_data;
-    end
     if (c.step_6 == 1'b1) begin
       $display("asd %h %d pc:%h -- opcode:%b -- func:%h alt:%d left:%h imm:%h pend:%h d_addr:%h d_data:%h trap:%d",
         c.ins, c.resetn, c.pc, c.opcode, c.alu_func, c.alu_alt, c.alu_left, c.imm, c.pend, c.d_addr, c.d_data, c.trap);

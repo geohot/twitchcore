@@ -67,18 +67,63 @@ module cond (
   end
 endmodule
 
+module ram (
+  input clk,
+  input [13:0] i_addr,
+  output reg [31:0] i_data,
+  input [13:0] d_addr,
+  output reg [31:0] d_data,
+  input [31:0] dw_data,
+  input dw_en);
+
+  reg [31:0] mem [0:4095];
+  initial $readmemh("test-cache/rv32ui-p-sh", mem);
+
+  always @(posedge clk) begin
+    i_data <= mem[i_addr[13:2]];
+    d_data <= mem[d_addr[13:2]];
+    if (dw_en) begin
+      mem[d_addr[13:2]] <= dw_data;
+    end
+  end
+
+  /*reg [7:0] mem [0:16383];
+  initial $readmemh("test-cache/rv32ui-p-sh", mem);
+
+  always @(posedge clk) begin
+    i_data <= {mem[i_addr+3], mem[i_addr+2], mem[i_addr+1], mem[i_addr]};
+    d_data <= {mem[d_addr+3], mem[d_addr+2], mem[d_addr+1], mem[d_addr]};
+    if (dw_en) begin
+      mem[d_addr] <= dw_data[7:0];
+      mem[d_addr+1] <= dw_data[15:8];
+      mem[d_addr+2] <= dw_data[23:16];
+      mem[d_addr+3] <= dw_data[31:24];
+    end
+  end*/
+endmodule
+
 // twitchcore is a low performance RISC-V processor
 module twitchcore (
   input clk, resetn,
   output reg trap,
-  output reg [31:0] pc,
-  input [31:0] i_data,
-  output [11:0] i_addr,
-  input [31:0] d_data,
-  output [11:0] d_addr,
-  output reg [31:0] dw_data,
-  output reg dw_en
+  output reg [31:0] pc
 );
+
+  wire [13:0] i_addr;
+  wire [31:0] i_data;
+  wire [13:0] d_addr;
+  wire [31:0] d_data;
+  reg [31:0] dw_data;
+  reg dw_en;
+  ram r (
+    .clk (clk),
+    .i_data (i_data),
+    .i_addr (i_addr),
+    .d_data (d_data),
+    .d_addr (d_addr),
+    .dw_data (dw_data),
+    .dw_en (dw_en)
+  );
 
   reg [31:0] regs [0:31];
   reg [3:0] rd;
@@ -136,10 +181,10 @@ module twitchcore (
     .out (cond_out)
   );
 
-  assign i_addr = pc[13:2];
+  assign i_addr = pc[13:0];
   assign ins = i_data;
 
-  assign d_addr = pend[13:2];
+  assign d_addr = pend[13:0];
 
   integer i;
   always @(posedge clk) begin
@@ -183,12 +228,10 @@ module twitchcore (
         imm <= imm_i;
         reg_writeback <= 1'b1;
         do_load <= 1'b1;
-        $display("LOAD");
       end
       7'b0100011: begin // STORE
         imm <= imm_s;
         do_store <= 1'b1;
-        $display("STORE");
       end
 
       7'b0010111: begin // AUIPC
