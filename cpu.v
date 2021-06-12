@@ -146,9 +146,9 @@ module twitchcore (
   wire [31:0] imm_j = {{11{ins[31]}}, ins[31], ins[19:12], ins[20], ins[30:21], 1'b0};
 
   reg [31:0] alu_left;
+  reg [31:0] alu_imm;
   reg [2:0] alu_func;
   reg alu_alt;
-  reg [31:0] imm;
 
   wire [31:0] pend;
   wire cond_out;
@@ -170,7 +170,7 @@ module twitchcore (
     .clk (clk),
     .funct3 (alu_func),
     .x (alu_left),
-    .y (imm),
+    .y (alu_imm),
     .alt (alu_alt),
     .out (pend)
   );
@@ -222,50 +222,50 @@ module twitchcore (
     do_store <= 1'b0;
     case (opcode)
       7'b0110111: begin // LUI
-        imm <= imm_u;
+        alu_imm <= imm_u;
         alu_left <= 32'b0;
         reg_writeback <= 1'b1;
       end
       7'b0000011: begin // LOAD
-        imm <= imm_i;
+        alu_imm <= imm_i;
         reg_writeback <= 1'b1;
         do_load <= 1'b1;
       end
       7'b0100011: begin // STORE
-        imm <= imm_s;
+        alu_imm <= imm_s;
         do_store <= 1'b1;
       end
 
       7'b0010111: begin // AUIPC
-        imm <= imm_u;
+        alu_imm <= imm_u;
         alu_left <= pc;
         reg_writeback <= 1'b1;
       end
       7'b1100011: begin // BRANCH
-        imm <= imm_b;
+        alu_imm <= imm_b;
         alu_left <= pc;
         update_pc <= 2'b10;
       end
       7'b1101111: begin // JAL
-        imm <= imm_j;
+        alu_imm <= imm_j;
         alu_left <= pc;
         update_pc <= 2'b01;
         reg_writeback <= 1'b1;
       end
       7'b1100111: begin // JALR
-        imm <= imm_i;
+        alu_imm <= imm_i;
         update_pc <= 2'b01;
         reg_writeback <= 1'b1;
       end
 
       7'b0010011: begin // IMM
-        imm <= imm_i;
+        alu_imm <= imm_i;
         alu_func <= funct3;
         alu_alt <= (funct7 == 7'b0100000 && funct3 == 3'b101);
         reg_writeback <= 1'b1;
       end
       7'b0110011: begin // OP
-        imm <= regs[ins[24:20]];
+        alu_imm <= regs[ins[24:20]];
         alu_func <= funct3;
         alu_alt <= (funct7 == 7'b0100000);
         reg_writeback <= 1'b1;
