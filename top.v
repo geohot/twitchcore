@@ -16,7 +16,7 @@ module top (
 	);  
 
   reg clkdiv;
-  reg [22:0] ctr;
+  reg [17:0] ctr;
   always @(posedge clk) {clkdiv, ctr} <= ctr + 1'b1;
 
   wire [31:0] pc;
@@ -28,6 +28,8 @@ module top (
   );
 
   // display pc
-  assign led[11:1] = pc[10:0];
+  assign led[3:1] = pc[2:0];
+  assign led[7:5] = pc[5:3];
+  assign led[11:9] = pc[8:6];
 endmodule
 
