@@ -71,15 +71,17 @@ endmodule
 module twitchcore (
   input clk, resetn,
   output reg trap,
-  output reg [31:0] pc
+  output reg [31:0] pc,
+  input [31:0] i_data,
+  output [11:0] i_addr,
+  input [31:0] d_data,
+  output [11:0] d_addr
 );
-  reg [31:0] rom [0:4095];
-  initial $readmemh("test-cache/rv32ui-p-sub", rom);
 
   reg [31:0] regs [0:31];
   reg [3:0] rd;
 
-  reg [31:0] ins;
+  wire [31:0] ins;
   reg [31:0] vs1;
   reg [31:0] vs2;
   reg [31:0] vpc;
@@ -105,12 +107,15 @@ module twitchcore (
   reg reg_writeback;
 
   wire pend_is_new_pc = update_pc[0] || (update_pc[1] && cond_out);
+  reg do_load;
+  reg do_store;
 
   reg step_1;
   reg step_2;
   reg step_3;
   reg step_4;
   reg step_5;
+  reg step_6;
 
   alu a (
     .clk (clk),
@@ -129,6 +134,10 @@ module twitchcore (
     .out (cond_out)
   );
 
+  assign i_addr = pc[13:2];
+  assign ins = i_data;
+
+  assign d_addr = pend[13:2];
 
   integer i;
   always @(posedge clk) begin
@@ -140,12 +149,13 @@ module twitchcore (
       step_3 <= 1'b0;
       step_4 <= 1'b0;
       step_5 <= 1'b0;
+      step_6 <= 1'b0;
       trap <= 1'b0;
     end
 
     // *** Instruction Fetch ***
     step_2 <= step_1;
-    ins <= rom[pc[30:2]];
+    // it sets ins here from rom_data
 
     // *** Instruction decode and register fetch ***
     step_3 <= step_2;
@@ -159,6 +169,8 @@ module twitchcore (
     alu_alt <= 1'b0;
     update_pc <= 2'b00;
     reg_writeback <= 1'b0;
+    do_load <= 1'b0;
+    do_store <= 1'b0;
     case (opcode)
       7'b0110111: begin // LUI
         imm <= imm_u;
@@ -168,9 +180,12 @@ module twitchcore (
       7'b0000011: begin // LOAD
         imm <= imm_i;
         reg_writeback <= 1'b1;
+        do_load <= 1'b1;
+        $display("LOAD");
       end
       7'b0100011: begin // STORE
         imm <= imm_s;
+        do_store <= 1'b1;
       end
 
       7'b0010111: begin // AUIPC
@@ -214,20 +229,35 @@ module twitchcore (
 
     // *** Execute (happens above in arith and cond) ***
     step_4 <= step_3;
-    // set pend and cond here
+    // it sets pend and cond here
 
     // *** Memory access (later) ***
     step_5 <= step_4;
+    // this sets d_data based on pend
     
     // *** Register Writeback ***
-    if (step_5 == 1'b1) begin
+    step_6 <= step_5;
+    if (step_6 == 1'b1) begin
       pc <= pend_is_new_pc ? pend : (vpc + 4);
-      regs[rd] <= (reg_writeback && rd != 4'b0000) ? (pend_is_new_pc ? (vpc + 4) : pend) : regs[rd];
+      if (reg_writeback && rd != 4'b0000) begin
+        if (do_load) begin
+          case (funct3)
+            3'b000: regs[rd] <= {{24{d_data[7]}}, d_data[7:0]};
+            3'b001: regs[rd] <= {{16{d_data[15]}}, d_data[15:0]};
+            3'b010: regs[rd] <= d_data;
+            3'b100: regs[rd] <= {24'b0, d_data[7:0]};
+            3'b101: regs[rd] <= {16'b0, d_data[15:0]};
+          endcase
+        end else begin
+          regs[rd] <= (pend_is_new_pc ? (vpc + 4) : pend);
+        end
+      end
       step_1 <= 1'b1;
       step_2 <= 1'b0;
       step_3 <= 1'b0;
       step_4 <= 1'b0;
       step_5 <= 1'b0;
+      step_6 <= 1'b0;
     end
   end
 

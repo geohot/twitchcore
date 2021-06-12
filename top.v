@@ -16,15 +16,32 @@ module top (
 	);  
 
   reg clkdiv;
-  reg [17:0] ctr;
+  reg [15:0] ctr;
   always @(posedge clk) {clkdiv, ctr} <= ctr + 1'b1;
+
+  reg [31:0] mem [0:4095];
+  initial $readmemh("test-cache/rv32ui-p-lw", mem);
+
+  wire [11:0] i_addr;
+  reg [31:0] i_data;
+  wire [11:0] d_addr;
+  reg [31:0] d_data;
+
+  always @(posedge clkdiv) begin
+    i_data <= mem[i_addr];
+    d_data <= mem[d_addr];
+  end
 
   wire [31:0] pc;
   twitchcore tc (
     .clk (clkdiv),
     .resetn (sw[0]),
     .trap (led[0]),
-    .pc (pc)
+    .pc (pc),
+    .i_data (i_data),
+    .i_addr (i_addr),
+    .d_data (d_data),
+    .d_addr (d_addr)
   );
 
   // display pc
