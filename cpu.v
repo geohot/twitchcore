@@ -9,20 +9,22 @@ module arith (
   always @(posedge clk) begin
     case (funct3) 
       3'b000: begin  // ADDI
-        out <= x + y;
+        out <= alt ? (x - y) : (x + y);
       end
       3'b001: begin  // SLL
         out <= x << y[4:0];
       end
       3'b010: begin  // SLT
+        out <= $signed(x) < $signed(y);
       end
       3'b011: begin  // SLTU
+        out <= x < y;
       end
       3'b100: begin  // XOR
         out <= x ^ y;
       end
       3'b101: begin  // SRL
-        out <= x >> y[4:0];
+        out <= alt ? (x >>> y[4:0]) : (x >> y[4:0]);
       end
       3'b110: begin  // OR
         out <= x | y;
@@ -51,10 +53,10 @@ module cond (
       end
       // TODO: fix signed
       3'b100: begin  // BLT
-        out <= x < y;
+        out <= $signed(x) < $signed(y);
       end
       3'b101: begin  // BGE
-        out <= x >= y;
+        out <= $signed(x) >= $signed(y);
       end
       3'b110: begin  // BLTU
         out <= x < y;
@@ -66,8 +68,8 @@ module cond (
   end
 endmodule
 
-// candy is a low performance RISC-V processor
-module candy (
+// twitchcore is a low performance RISC-V processor
+module twitchcore (
   input clk, resetn
 );
   reg [31:0] rom [0:4095];
@@ -94,6 +96,7 @@ module candy (
 
   reg [31:0] arith_left;
   reg [2:0] arith_func;
+  reg arith_alt;
   reg [31:0] imm;
 
   wire [31:0] pend;
@@ -112,6 +115,7 @@ module candy (
     .funct3 (arith_func),
     .x (arith_left),
     .y (imm),
+    .alt (arith_alt),
     .out (pend)
   );
 
@@ -124,8 +128,10 @@ module candy (
   );
 
   //$dumpfile("test.vcd");
+  integer i;
   always @(negedge resetn) begin
     pc <= 32'h80000000;
+    for (i=0; i<32; i=i+1) regs[i] <= 0;
     step_1 <= 1'b1;
     step_2 <= 1'b0;
     step_3 <= 1'b0;
@@ -134,21 +140,20 @@ module candy (
   end
 
   always @(posedge clk) begin
-    // Instruction Fetch
-    ins <= rom[pc[30:0]];
+    // *** Instruction Fetch ***
     step_2 <= step_1;
+    ins <= rom[pc[30:0]];
 
-    // Instruction decode and register fetch
+    // *** Instruction decode and register fetch ***
+    step_3 <= step_2;
     vs1 <= regs[ins[19:15]];
     vs2 <= regs[ins[24:20]];
     vpc <= pc;
     rd <= ins[11:7];
-    step_3 <= step_2;
 
-    // Execute
-    step_4 <= step_3;
     arith_func <= 3'b000;
     arith_left <= vs1;
+    arith_alt <= 1'b0;
     pend_is_new_pc <= 1'b0;
     reg_writeback <= 1'b0;
     case (opcode)
@@ -166,17 +171,17 @@ module candy (
 
       7'b0010111: begin // AUIPC
         imm <= imm_u;
-        arith_left <= vpc;
+        arith_left <= pc;
         reg_writeback <= 1'b1;
       end
       7'b1100011: begin // BRANCH
         imm <= imm_b;
-        arith_left <= vpc;
+        arith_left <= pc;
         pend_is_new_pc <= pend_is_new_pc_cond;
       end
       7'b1101111: begin // JAL
         imm <= imm_j;
-        arith_left <= vpc;
+        arith_left <= pc;
         pend_is_new_pc <= 1'b1;
         reg_writeback <= 1'b1;
       end
@@ -189,23 +194,28 @@ module candy (
       7'b0010011: begin // IMM
         imm <= imm_i;
         arith_func <= funct3;
+        arith_alt <= (funct7 == 7'b0100000 && funct3 == 3'b101);
         reg_writeback <= 1'b1;
       end
       7'b0110011: begin // OP
-        imm <= vs2;
+        imm <= regs[ins[24:20]];
         arith_func <= funct3;
+        arith_alt <= (funct7 == 7'b0100000);
         reg_writeback <= 1'b1;
       end
     endcase
 
-    // Memory access (later)
+    // *** Execute (happens above) ***
+    step_4 <= step_3;
+
+    // *** Memory access (later) ***
     step_5 <= step_4;
   end
 
   always @(posedge step_5) begin
     pc <= pend_is_new_pc ? pend : (vpc + 4);
     regs[rd] <= reg_writeback ? (pend_is_new_pc ? (vpc + 4) : pend) : regs[rd];
-    $display("asd %h %d pc:%h -- %h -- %h %h %h %h", ins, resetn, pc, opcode, arith_func, arith_left, imm, pend);
+    $display("asd %h %d pc:%h -- opcode:%h -- func:%h left:%h imm:%h pend:%h", ins, resetn, pc, opcode, arith_func, arith_left, imm, pend);
     step_1 <= 1'b1;
     step_2 <= 1'b0;
     step_3 <= 1'b0;
@@ -235,7 +245,7 @@ module testbench;
     resetn <= 0;
   end
 
-  candy c (
+  twitchcore c (
     .clk (clk),
     .resetn (resetn)
   );
