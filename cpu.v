@@ -81,8 +81,12 @@ module ram (
   initial $readmemh("test-cache/rv32ui-p-lb", mem);
 
   always @(posedge clk) begin
+    // always aligned for instruction fetch
     i_data <= mem[i_addr[13:2]];
-    d_data <= mem[d_addr[13:2]];
+    // misaligned data, but it's filled with 0s
+    d_data <=
+      d_addr[1] ? (d_addr[0] ? (mem[d_addr[13:2]] >> 24) : (mem[d_addr[13:2]] >> 16))
+                : (d_addr[0] ? (mem[d_addr[13:2]] >> 8) : (mem[d_addr[13:2]]));
     if (dw_en) begin
       mem[d_addr[13:2]] <= dw_data;
     end
@@ -294,15 +298,11 @@ module twitchcore (
         if (do_load) begin
           // support some unaligned loads, but can't break word boundary
           case (funct3)
-            3'b000: regs[rd] <=
-              pend[1] ? (pend[0] ? {{24{d_data[31]}}, d_data[31:24]} : {{24{d_data[23]}}, d_data[23:16]}) :
-                        (pend[0] ? {{24{d_data[15]}}, d_data[15:8]}  : {{24{d_data[7]}}, d_data[7:0]});
-            3'b001: regs[rd] <= pend[1] ? {{16{d_data[31]}}, d_data[31:16]} : {{16{d_data[15]}}, d_data[15:0]};
+            3'b000: regs[rd] <= {{24{d_data[7]}}, d_data[7:0]};
+            3'b001: regs[rd] <= {{16{d_data[15]}}, d_data[15:0]};
             3'b010: regs[rd] <= d_data;
-            3'b100: regs[rd] <=
-              pend[1] ? (pend[0] ? {24'b0, d_data[31:24]} : {24'b0, d_data[23:16]}) :
-                        (pend[0] ? {24'b0, d_data[15:8]}  : {24'b0, d_data[7:0]});
-            3'b101: regs[rd] <= pend[1] ? {16'b0, d_data[31:16]} : {16'b0, d_data[15:0]};
+            3'b100: regs[rd] <= {24'b0, d_data[7:0]};
+            3'b101: regs[rd] <= {16'b0, d_data[15:0]};
           endcase
         end else begin
           regs[rd] <= (pend_is_new_pc ? (vpc + 4) : pend);
