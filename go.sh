@@ -1,3 +1,3 @@
 #!/bin/bash
-iverilog -o run cpu.v && vvp run
+iverilog -o run testbench.v cpu.v && vvp run
 
