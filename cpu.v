@@ -85,12 +85,14 @@ module ram (
     // always aligned for instruction fetch
     i_data <= mem[i_addr[13:2]];
     // misaligned data, but it's filled with 0s
+    // support some unaligned loads, but can't break word boundary
     d_data <=
       d_addr[1] ? (d_addr[0] ? (dt_data >> 24) : (dt_data >> 16))
                 : (d_addr[0] ? (dt_data >> 8) : dt_data);
     // 2'b01 = 8-bit
     // 2'b10 = 16-bit
     // 2'b11 = 32-bit
+    // again, can't break word boundary
     case (dw_size)
       2'b11: mem[d_addr[13:2]] <= dw_data;
       2'b10: mem[d_addr[13:2]] <= 
@@ -130,20 +132,21 @@ module twitchcore (
   reg [31:0] regs [0:31];
   reg [3:0] rd;
 
-  wire [31:0] ins;
   reg [31:0] vs1;
   reg [31:0] vs2;
   reg [31:0] vpc;
 
   // Instruction decode and register fetch
-  wire [6:0] opcode = ins[6:0];
-  wire [2:0] funct3 = ins[14:12];
-  wire [7:0] funct7 = ins[31:25];
-  wire [31:0] imm_i = {{24{ins[31]}}, ins[31:20]};
-  wire [31:0] imm_s = {{24{ins[31]}}, ins[31:25], ins[11:7]};
-  wire [31:0] imm_b = {{23{ins[31]}}, ins[31], ins[7], ins[30:25], ins[11:8], 1'b0};
-  wire [31:0] imm_u = {ins[31:12], 12'b0};
-  wire [31:0] imm_j = {{11{ins[31]}}, ins[31], ins[19:12], ins[20], ins[30:21], 1'b0};
+  wire [6:0] opcode = i_data[6:0];
+  wire [2:0] funct3 = i_data[14:12];
+  wire [7:0] funct7 = i_data[31:25];
+  wire [3:0] rs1 = i_data[19:15];
+  wire [3:0] rs2 = i_data[24:20];
+  wire [31:0] imm_i = {{24{i_data[31]}}, i_data[31:20]};
+  wire [31:0] imm_s = {{24{i_data[31]}}, i_data[31:25], i_data[11:7]};
+  wire [31:0] imm_b = {{23{i_data[31]}}, i_data[31], i_data[7], i_data[30:25], i_data[11:8], 1'b0};
+  wire [31:0] imm_u = {i_data[31:12], 12'b0};
+  wire [31:0] imm_j = {{11{i_data[31]}}, i_data[31], i_data[19:12], i_data[20], i_data[30:21], 1'b0};
 
   reg [31:0] alu_left;
   reg [31:0] alu_imm;
@@ -151,6 +154,7 @@ module twitchcore (
   reg alu_alt;
 
   wire [31:0] pend;
+  reg [2:0] cond_func;
   wire cond_out;
   reg [1:0] update_pc;  // 2'b00: don't update, 2'b01: update always, 2'b10: update cond
   reg reg_writeback;
@@ -177,15 +181,13 @@ module twitchcore (
 
   cond c (
     .clk (clk),
-    .funct3 (funct3),
+    .funct3 (cond_func),
     .x (vs1),
     .y (vs2),
     .out (cond_out)
   );
 
   assign i_addr = pc[13:0];
-  assign ins = i_data;
-
   assign d_addr = pend[13:0];
 
   integer i;
@@ -204,14 +206,15 @@ module twitchcore (
 
     // *** Instruction Fetch ***
     step_2 <= step_1;
-    // it sets ins here from rom_data
+    // it sets i_data here from pc
 
     // *** Instruction decode and register fetch ***
     step_3 <= step_2;
-    vs1 <= regs[ins[19:15]];
-    vs2 <= regs[ins[24:20]];
+    vs1 <= regs[rs1];
+    vs2 <= regs[rs2];
     vpc <= pc;
-    rd <= ins[11:7];
+    rd <= i_data[11:7];
+    cond_func <= funct3;
 
     alu_func <= 3'b000;
     alu_left <= vs1;
@@ -265,7 +268,7 @@ module twitchcore (
         reg_writeback <= 1'b1;
       end
       7'b0110011: begin // OP
-        alu_imm <= regs[ins[24:20]];
+        alu_imm <= regs[rs2];
         alu_func <= funct3;
         alu_alt <= (funct7 == 7'b0100000);
         reg_writeback <= 1'b1;
@@ -293,7 +296,6 @@ module twitchcore (
       pc <= pend_is_new_pc ? pend : (vpc + 4);
       if (reg_writeback && rd != 4'b0000) begin
         if (do_load) begin
-          // support some unaligned loads, but can't break word boundary
           case (funct3)
             3'b000: regs[rd] <= {{24{d_data[7]}}, d_data[7:0]};
             3'b001: regs[rd] <= {{16{d_data[15]}}, d_data[15:0]};
