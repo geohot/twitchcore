@@ -69,7 +69,8 @@ endmodule
 
 // twitchcore is a low performance RISC-V processor
 module twitchcore (
-  input clk, resetn
+  input clk, resetn,
+  output reg trap
 );
   reg [31:0] rom [0:4095];
   initial $readmemh("test-cache/rv32ui-p-add", rom);
@@ -136,6 +137,7 @@ module twitchcore (
     step_3 <= 1'b0;
     step_4 <= 1'b0;
     step_5 <= 1'b0;
+    trap <= 1'b0;
   end
 
   always @(posedge clk) begin
@@ -176,6 +178,7 @@ module twitchcore (
       7'b1100011: begin // BRANCH
         imm <= imm_b;
         arith_left <= pc;
+        // this is in the wrong place in the pipeline
         pend_is_new_pc <= pend_is_new_pc_cond;
       end
       7'b1101111: begin // JAL
@@ -202,6 +205,9 @@ module twitchcore (
         arith_alt <= (funct7 == 7'b0100000);
         reg_writeback <= 1'b1;
       end
+      7'b1110011: begin // SYSTEM
+        trap <= regs[3] > 0;
+      end
     endcase
 
     // *** Execute (happens above) ***
@@ -213,7 +219,7 @@ module twitchcore (
 
   // *** Register Writeback ***
   always @(posedge step_5) begin
-    $display("asd %h %d pc:%h -- opcode:%b -- func:%h left:%h imm:%h pend:%h pend_is_new_pc:%d", ins, resetn, pc, opcode, arith_func, arith_left, imm, pend, pend_is_new_pc);
+    $display("asd %h %d pc:%h -- opcode:%b -- func:%h left:%h imm:%h pend:%h pend_is_new_pc:%d trap:%d", ins, resetn, pc, opcode, arith_func, arith_left, imm, pend, pend_is_new_pc, trap);
     pc <= pend_is_new_pc ? pend : (vpc + 4);
     regs[rd] <= (reg_writeback && rd != 4'b0000) ? (pend_is_new_pc ? (vpc + 4) : pend) : regs[rd];
     step_1 <= 1'b1;
@@ -228,6 +234,7 @@ endmodule
 module testbench;
 	reg clk;
   reg resetn;
+  wire trap;
   reg [7:0] cnt;
 
 	initial begin
@@ -247,11 +254,17 @@ module testbench;
 
   twitchcore c (
     .clk (clk),
-    .resetn (resetn)
+    .resetn (resetn),
+    .trap (trap)
   );
 
+  always @(posedge trap) begin
+    $display("TRAP", c.regs[3]);
+    $finish;
+  end
+
   initial begin
-    #10000
+    #21000
     $display("no more work ", cnt);
     $finish;
   end
