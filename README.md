@@ -4,9 +4,10 @@ A RISC-V core, first in Python, then in Verilog, then on FPGA.
 
 # TODO
 
-* Add memory support
+* Fix unaligned loads/stores
 * Make pipelining work
-* Add M instructions
+* Add M instructions for fast multiply and divide
+* Add better introspection
 
 # TODO (later)
 
