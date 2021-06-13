@@ -15,10 +15,10 @@ module alu (
         out <= x << y[4:0];
       end
       3'b010: begin  // SLT
-        out <= $signed(x) < $signed(y);
+        out <= {31'b0, $signed(x) < $signed(y)};
       end
       3'b011: begin  // SLTU
-        out <= x < y;
+        out <= {31'b0, x < y};
       end
       3'b100: begin  // XOR
         out <= x ^ y;
@@ -131,7 +131,7 @@ module twitchcore (
   );
 
   reg [31:0] regs [0:31];
-  reg [3:0] rd;
+  reg [4:0] rd;
 
   reg [31:0] vs1;
   reg [31:0] vs2;
@@ -140,12 +140,12 @@ module twitchcore (
   // Instruction decode and register fetch
   wire [6:0] opcode = i_data[6:0];
   wire [2:0] funct3 = i_data[14:12];
-  wire [7:0] funct7 = i_data[31:25];
-  wire [3:0] rs1 = i_data[19:15];
-  wire [3:0] rs2 = i_data[24:20];
-  wire [31:0] imm_i = {{24{i_data[31]}}, i_data[31:20]};
-  wire [31:0] imm_s = {{24{i_data[31]}}, i_data[31:25], i_data[11:7]};
-  wire [31:0] imm_b = {{23{i_data[31]}}, i_data[31], i_data[7], i_data[30:25], i_data[11:8], 1'b0};
+  wire [6:0] funct7 = i_data[31:25];
+  wire [4:0] rs1 = i_data[19:15];
+  wire [4:0] rs2 = i_data[24:20];
+  wire [31:0] imm_i = {{20{i_data[31]}}, i_data[31:20]};
+  wire [31:0] imm_s = {{20{i_data[31]}}, i_data[31:25], i_data[11:7]};
+  wire [31:0] imm_b = {{19{i_data[31]}}, i_data[31], i_data[7], i_data[30:25], i_data[11:8], 1'b0};
   wire [31:0] imm_u = {i_data[31:12], 12'b0};
   wire [31:0] imm_j = {{11{i_data[31]}}, i_data[31], i_data[19:12], i_data[20], i_data[30:21], 1'b0};
 
@@ -189,7 +189,7 @@ module twitchcore (
     if (resetn) begin
       pc <= 32'h80000000;
       for (i=0; i<32; i=i+1) regs[i] <= 0;
-      step <= 6'b1;
+      step <= 'b1;
       trap <= 1'b0;
     end
 
@@ -282,7 +282,7 @@ module twitchcore (
     // *** Register Writeback ***
     if (step[6] == 1'b1) begin
       pc <= pend_is_new_pc ? pend : (vpc + 4);
-      if (reg_writeback && rd != 4'b0000) begin
+      if (reg_writeback && rd != 5'b00000) begin
         if (do_load) begin
           case (funct3_saved)
             3'b000: regs[rd] <= {{24{d_data[7]}}, d_data[7:0]};
@@ -295,7 +295,7 @@ module twitchcore (
           regs[rd] <= (pend_is_new_pc ? (vpc + 4) : pend);
         end
       end
-      step <= 6'b1;
+      step <= 'b1;
       dw_size <= 2'b00;
     end
   end
