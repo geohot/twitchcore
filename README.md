@@ -20,9 +20,9 @@ A RISC-V core, first in Python, then in Verilog, then on FPGA.
 8 million elements (20MB) = 23-bit address path
 
 We want to support a load/store instruction into 32x32 matrix register (2432 bytes) like this:
-* Would be R-Type with rs1 and rs2.
-* rs1 contains the 23-bit base address 
-* rs2 contains two 24-bit strides for x and y, and two 8-bit masks in the upper bytes (0 is no mask). Several of these bits aren't connected
+* Would be R-Type with rs1 and rs2 (64-bit)
+* rs1 contains the 23-bit base address, plus two masks in the upper bytes (0 is no mask)
+* rs2 contains two 24-bit strides for x and y. Several of these bits aren't connected
 * "rd" is the extension register to load into / store from
 
 Use some hash function on the addresses to avoid "bank conflicts", can upper bound the fetch time.
@@ -45,9 +45,7 @@ matmul
 
 16x16 registers (608 bytes), 256 FMACs (does it fit)
 
-* 64k elements = 16-bit address path
-* 2x12-bit strides, 2x4-bit masks
-* Nah, actually switch to 64-bit first
-
-
+* 128k elements = 17-bit address path
+* rs1 = 2x4-bit masks + 17-bit address
+* rs2 = 2x16-bit strides
 
