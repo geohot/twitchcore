@@ -186,8 +186,8 @@ module twitchcore (
   reg [2:0] risk_func;
   reg [4:0] risk_reg;
   reg [16:0] risk_addr;
-  reg [15:0] risk_stride_x;
-  reg [15:0] risk_stride_y;
+  reg [14:0] risk_stride_x;
+  reg [14:0] risk_stride_y;
   wire [287:0] risk_reg_view;
   risk ri (
     .clk (clk),
@@ -285,7 +285,19 @@ module twitchcore (
         risk_stride_y <= regs[rs2][15:0];
         risk_reg <= i_data[11:7];
 
-        alu_imm <= risk_reg_view;
+        // 9 DWORDs
+        case (funct7) 
+          7'b0000000: alu_imm <= risk_reg_view[31:0];
+          7'b0000001: alu_imm <= risk_reg_view[63:32];
+          7'b0000010: alu_imm <= risk_reg_view[95:64];
+          7'b0000011: alu_imm <= risk_reg_view[127:96];
+          7'b0000100: alu_imm <= risk_reg_view[159:128];
+          7'b0000101: alu_imm <= risk_reg_view[191:160];
+          7'b0000110: alu_imm <= risk_reg_view[223:192];
+          7'b0000111: alu_imm <= risk_reg_view[255:224];
+          7'b0001000: alu_imm <= risk_reg_view[288:256];
+        endcase
+        alu_left <= 32'b0;
         reg_writeback <= 1'b1;
       end
       7'b1110011: begin // SYSTEM

@@ -9,8 +9,8 @@ from collections import Counter
 # for simplicity, lets assume we get one read per cycle
 # array is SZxSZ
 
-ELE, CNT, SZ = 4096, 2048, 32   #  4.6 TB/s
-#ELE, CNT, SZ = 1024, 256, 8    # 57.6 GB/s
+#ELE, CNT, SZ = 4096, 2048, 32   #  4.6 TB/s
+ELE, CNT, SZ = 1024, 128, 8      # 28.8 GB/s
 #brams = [np.zeros(ELE, dtype=np.float32) for x in range(CNT)]
 
 # ideal hash function

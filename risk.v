@@ -5,6 +5,8 @@
 // this is also the size of ECC
 // use a 9 bit mantissa (cherryfloat)
 
+(* use_dsp48 = "no" *)
+
 module risk_single_mem (
   input clk,
   input [9:0] addr_r,
@@ -15,53 +17,59 @@ module risk_single_mem (
 );
   // this is 1 18k BRAM
   reg [17:0] mem [0:1023];
-  assign data_r = mem[addr_r];
+  /*assign data_r = mem[addr_r];
   always @(posedge clk) begin
     mem[addr_w] <= data_w;
-  end
+  end*/
+  assign data_r = {8'hff, addr_r};
 endmodule
 
 // this is hard to synthesize
 module risk_mem (
   input clk,
   input [16:0] addr,
-  input [15:0] stride_x,
-  input [15:0] stride_y,
+  input [14:0] stride_x,
+  input [14:0] stride_y,
   input [287:0] dat_w,
   input we,
   output reg [287:0] dat_r
 );
   // 1 cycle to get all the addresses
-  reg [16:0] addrs [0:15];
+  // 128 BRAMs
+  reg [271:0] addrs;
 
   generate
     genvar x,y;
     for (y=0; y<4; y=y+1) begin
       for (x=0; x<4; x=x+1) begin
         always @(posedge clk) begin
-          addrs[y*4+x] <= addr + stride_x*x + stride_y*y;
+          addrs[(y*4+x)*17+16:(y*4+x)*17] <= addr + stride_x*x + stride_y*y;
         end
       end
     end
   endgenerate
 
-  generate
-    genvar i;
-    for (i=0; i<16; i=i+1) begin
-      wire [17:0] out;
-      wire [17:0] in = dat_w[(i*18)+17:(i*18)];
+  /*always @(posedge clk) begin
+    dat_r <= addrs;
+  end*/
 
+  generate
+    genvar i,j;
+    for (i=0; i<128; i=i+1) begin
+      reg [9:0] taddr;
+      wire [17:0] out;
       risk_single_mem rsm(
         .clk(clk),
-        .addr_r(addrs[i]),
+        .addr_r(taddr),
         .data_r(out),
-        .addr_w(addrs[i]),
-        .data_w(in),
         .we(we)
       );
 
-      always @(posedge clk) begin
-        dat_r[(i*18)+17:(i*18)] <= out;
+      for (j=0; j<16; j=j+1) begin
+        always @(posedge clk) begin
+          if (addrs[j*17+6:j*17] == i) taddr <= addrs[j*17+16:j*17+7];
+          if (addrs[j*17+6:j*17] == i) dat_r[18*j+17:18*j] <= out;
+        end
       end
     end
   endgenerate
@@ -79,8 +87,8 @@ module risk (
   input [2:0] risk_func,
   input [4:0] risk_reg,
   input [16:0] risk_addr,
-  input [15:0] risk_stride_x,
-  input [15:0] risk_stride_y,
+  input [14:0] risk_stride_x,
+  input [14:0] risk_stride_y,
   output [287:0] reg_view
 );
   wire [287:0] dat_r;

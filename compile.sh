@@ -6,7 +6,7 @@ cd out
 # see tinygrad/fpga
 
 BASE=/Users/taylor/fun/fpga
-$BASE/yosys/yosys -p "synth_xilinx -flatten -nowidelut -abc9 -arch xc7 -top top; write_json attosoc.json" ../cpu.v ../top.v ../risk.v
+$BASE/yosys/yosys -p "synth_xilinx -flatten -nowidelut -nodsp -abc9 -arch xc7 -top top; write_json attosoc.json" ../cpu.v ../top.v ../risk.v
 $BASE/nextpnr-xilinx/nextpnr-xilinx --chipdb $BASE/nextpnr-xilinx/xilinx/xc7a100t.bin --xdc ../arty.xdc --json attosoc.json --write attosoc_routed.json --fasm attosoc.fasm
 
 XRAY_UTILS_DIR=$BASE/prjxray/utils
