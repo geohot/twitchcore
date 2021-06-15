@@ -38,6 +38,7 @@ if __name__ == "__main__":
   cnts = []
 
   try:
+    """
     # real access patterns
     cc = open("/tmp/risk_load_log").read().strip().split("\n")
     random.shuffle(cc)
@@ -55,7 +56,6 @@ if __name__ == "__main__":
       cnt = riski_load(None, address, stride_y, stride_x)
       cnts.append(cnt)
       t.set_description("worst: %d" % max(cnts))
-    """
   except KeyboardInterrupt:
     pass
 
