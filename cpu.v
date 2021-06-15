@@ -185,9 +185,9 @@ module twitchcore (
 
   reg [2:0] risk_func;
   reg [4:0] risk_reg;
-  reg [16:0] risk_addr;
-  reg [14:0] risk_stride_x;
-  reg [14:0] risk_stride_y;
+  reg [14:0] risk_addr;
+  reg [13:0] risk_stride_x;
+  reg [13:0] risk_stride_y;
   wire [287:0] risk_reg_view;
   risk ri (
     .clk (clk),
