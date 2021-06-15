@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import struct
 import glob
 import binascii
@@ -240,6 +241,8 @@ def step():
 
 
 if __name__ == "__main__":
+  if not os.path.isdir('test-cache'):
+    os.mkdir('test-cache')
   for x in glob.glob("riscv-tests/isa/rv32ui-p-*"):
     if x.endswith('.dump'):
       continue
