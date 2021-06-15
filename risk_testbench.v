@@ -11,7 +11,6 @@ module testbench;
   always
     #5 clk = !clk;
 
-
   initial begin
     #100
     $finish;
@@ -34,16 +33,21 @@ module testbench;
   );
 
   initial begin
-    risk_func = 3'b000;
+    risk_func = 3'b010;
     risk_reg = 5'b00000;
-    risk_addr = 34;
+    risk_addr = 0;
     risk_stride_x = 3;
     risk_stride_y = 3;
+    #20
+    risk_func = 3'b001;
+    #20
+    risk_func = 3'b000;
   end
 
   always @(posedge clk) begin
     cnt <= cnt + 1;
     $display("%d %x %x", cnt, risk_reg_view, ri.rm.addrs);
+    //$display("%x %x", ri.rm.choices, ri.rm.ens);
   end
 
 endmodule
