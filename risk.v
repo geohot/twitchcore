@@ -8,16 +8,17 @@
 module risk_single_mem (
   input clk,
   input [9:0] addr,
-  output [17:0] data_r,
+  output reg [17:0] data_r,
   input [17:0] data_w,
   input we
 );
   // this is 1 18k BRAM
   reg [17:0] mem [0:1023];
-  assign data_r = mem[addr];
   always @(posedge clk) begin
     if (we) begin
       mem[addr] <= data_w;
+    end else begin
+      data_r <= mem[addr];
     end
   end
   //assign data_r = {8'hff, addr};
