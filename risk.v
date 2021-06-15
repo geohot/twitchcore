@@ -86,13 +86,20 @@ module risk_mem (
         mask[i*16 +: 16] <= 'b0;
         for (l=0; l<16; l=l+1) begin
           if (addrs[15*l +: 5] == i) begin
-            taddr <= addrs[15*l+5 +: 10];
-            in <= dat_w[18*l +: 18];
             mask[i*16 +: 16] <= (1 << l);
             //ens[i] <= 'b1;
             //choice[i*4 +: 4] <= l;
+            taddr <= addrs[15*l+5 +: 10];
+            in <= dat_w[18*l +: 18];
           end
         end
+
+        /*for (l=0; l<16; l=l+1) begin
+          if (mask[i*16 + l]) begin
+            taddr <= addrs[15*l+5 +: 10];
+            in <= dat_w[18*l +: 18];
+          end
+        end*/
       end
       assign outs[i*18 +: 18] = out;
     end
@@ -102,11 +109,24 @@ module risk_mem (
       wire [31:0] lmask;
       for (i=0; i < 32; i=i+1) assign lmask[i] = mask[i*16 + k];
 
+      // this uses 19%
+      /*reg [5:0] idx;
+
+      integer l;
+      always @(posedge clk) begin
+        for (l=0; l<32; l=l+1)
+          if (lmask[l])
+            idx <= l;
+      end
 
       always @(posedge clk) begin
-        case (lmask)
-          'b00000000000000000000000000000001: dat_r[18*k +: 18] <= outs[18*0 +: 18];
-          'b00000000000000000000000000000010: dat_r[18*k +: 18] <= outs[18*1 +: 18];
+        dat_r[18*k +: 18] <= outs[18*idx +: 18];
+      end*/
+
+      /*always @(posedge clk) begin
+        casez (lmask)
+          'b???????????????????????????????1: dat_r[18*k +: 18] <= outs[18*0 +: 18];
+          'b??????????????????????????????1?: dat_r[18*k +: 18] <= outs[18*1 +: 18];
           'b00000000000000000000000000000100: dat_r[18*k +: 18] <= outs[18*2 +: 18];
           'b00000000000000000000000000001000: dat_r[18*k +: 18] <= outs[18*3 +: 18];
           'b00000000000000000000000000010000: dat_r[18*k +: 18] <= outs[18*4 +: 18];
@@ -138,17 +158,27 @@ module risk_mem (
           'b01000000000000000000000000000000: dat_r[18*k +: 18] <= outs[18*30 +: 18];
           'b10000000000000000000000000000000: dat_r[18*k +: 18] <= outs[18*31 +: 18];
         endcase
-      end
+      end*/
 
+      // this is the best yet
       /*integer l;
       always @(posedge clk) begin
-        $display("%b", lmask);
         for (l=0; l<32; l=l+1)
           // TODO: replace with and and or
           //if (ens[l] == 'b1 && choice[l*4 +: 4] == k)
           if (lmask[l])
             dat_r[18*k +: 18] <= outs[18*l +: 18];
       end*/
+
+      // https://andy-knowles.github.io/one-hot-mux/
+      // down to 14%
+      integer l;
+      always @(posedge clk) begin
+        //$display("%b", outs);
+        dat_r[18*k +: 18] = 'b0;
+        for (l=0; l<32; l=l+1)
+          dat_r[18*k +: 18] = dat_r[18*k +: 18] | (outs[18*l +: 18] & {18{lmask[l]}});
+      end
 
       /*assign dat_r_comb[18*k +: 18] = 'bz;
       for (i=0; i<32; i=i+1) begin
