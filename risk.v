@@ -94,11 +94,11 @@ module risk_mem (
           end
         end
 
-        /*for (l=0; l<16; l=l+1) begin
-          if (mask[i*16 + l]) begin
-            taddr <= addrs[15*l+5 +: 10];
-            in <= dat_w[18*l +: 18];
-          end
+        /*taddr = 10'b0;
+        in = 18'b0;
+        for (l=0; l<16; l=l+1) begin
+          taddr = taddr | (addrs[15*l+5 +: 10] & {10{mask[i*16 + l]}});
+          in = in | (dat_w[18*l +: 18] & {18{mask[i*16 + l]}});
         end*/
       end
       assign outs[i*18 +: 18] = out;
@@ -172,6 +172,8 @@ module risk_mem (
 
       // https://andy-knowles.github.io/one-hot-mux/
       // down to 14%
+      // in this chip, this is 16 registers x 32 BRAMs x 18-bits
+      // in final edition, this will be 1024 registers x 2048 BRAMs x 19-bits
       integer l;
       always @(posedge clk) begin
         //$display("%b", outs);
