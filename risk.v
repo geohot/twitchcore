@@ -21,12 +21,11 @@ module risk_single_mem #(parameter LINE=18) (
       data_r <= mem[addr];
     end
   end
-  //assign data_r = {8'hff, addr};
 endmodule
 
 
 // this is hard to synthesize
-module risk_mem (
+module risk_mem #(parameter SZ=4) (
   input clk,
   input [14:0] addr,
   input [13:0] stride_x,
@@ -35,18 +34,17 @@ module risk_mem (
   input we,
   output reg [18*4*4-1:0] dat_r
 );
-  parameter LOGCNT=4;
+  parameter LOGCNT=5;
   parameter CNT=(1<<LOGCNT);
-  parameter SZ=4;
   parameter BITS=18;
 
   // strides
-  //parameter SZ_Y=4;
-  //parameter LINE=BITS;
+  parameter SZ_Y=SZ;
+  parameter LINE=BITS;
 
   // strideless
-  parameter SZ_Y=1;
-  parameter LINE=BITS*SZ;
+  //parameter SZ_Y=1;
+  //parameter LINE=BITS*SZ;
 
   // 1 cycle to get all the addresses
   reg [(10+LOGCNT)*SZ*SZ_Y-1:0] addrs;
@@ -102,12 +100,10 @@ module risk_mem (
       for (i=0; i < CNT; i=i+1) assign lmask[i] = mask[i*SZ_Y*SZ + k];
 
       // https://andy-knowles.github.io/one-hot-mux/
-      // down to 14%
       // in this chip, this is 16 registers x 32 BRAMs x 18-bits
       // in final edition, this will be 1024 registers x 2048 BRAMs x 19-bits
       integer l;
       always @(posedge clk) begin
-        //$display("%b", lmask);
         if (lmask != 'b0) begin
           dat_r[LINE*k +: LINE] = 'b0;
           for (l=0; l<CNT; l=l+1)

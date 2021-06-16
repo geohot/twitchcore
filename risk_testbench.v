@@ -46,11 +46,7 @@ module testbench;
 
   always @(posedge clk) begin
     cnt <= cnt + 1;
-    $display("%d %x -- %x %x %x %x", cnt, risk_reg_view,
-      ri.rm.addrs[14*3 +: 14],
-      ri.rm.addrs[14*2 +: 14],
-      ri.rm.addrs[14*1 +: 14],
-      ri.rm.addrs[14*0 +: 14]);
+    $display("%d %x -- %x", cnt, risk_reg_view, ri.rm.addrs);
     //$display("%x", ri.rm.ens);
     //$display("%x", ri.rm.ens);
   end
