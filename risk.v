@@ -6,15 +6,14 @@
 // this is also the size of ECC
 // use a 9 bit mantissa (cherryfloat)
 
-module risk_single_mem (
+module risk_single_mem #(parameter LINE=18) (
   input clk,
   input [9:0] addr,
-  output reg [17:0] data_r,
-  input [17:0] data_w,
+  output reg [LINE-1:0] data_r,
+  input [LINE-1:0] data_w,
   input we
 );
-  // this is 1 18k BRAM
-  reg [17:0] mem [0:1023];
+  reg [LINE-1:0] mem [0:1023];
   always @(posedge clk) begin
     if (we) begin
       mem[addr] <= data_w;
@@ -25,55 +24,56 @@ module risk_single_mem (
   //assign data_r = {8'hff, addr};
 endmodule
 
+
 // this is hard to synthesize
 module risk_mem (
   input clk,
   input [14:0] addr,
   input [13:0] stride_x,
   input [13:0] stride_y,
-  input [287:0] dat_w,
+  input [18*4*4-1:0] dat_w,
   input we,
-  output reg [287:0] dat_r
+  output reg [18*4*4-1:0] dat_r
 );
+  parameter LOGCNT=4;
+  parameter CNT=(1<<LOGCNT);
+  parameter SZ=4;
+  parameter BITS=18;
+
+  // strides
+  //parameter SZ_Y=4;
+  //parameter LINE=BITS;
+
+  // strideless
+  parameter SZ_Y=1;
+  parameter LINE=BITS*SZ;
+
   // 1 cycle to get all the addresses
-  // 32 BRAMs
-  // SZ*SZ*len(addr)
-  reg [239:0] addrs;
+  reg [(10+LOGCNT)*SZ*SZ_Y-1:0] addrs;
 
   generate
     genvar x,y;
-    for (y=0; y<4; y=y+1) begin
-      for (x=0; x<4; x=x+1) begin
+    for (y=0; y<SZ_Y; y=y+1) begin
+      for (x=0; x<SZ; x=x+1) begin
         always @(posedge clk) begin
-          addrs[(y*4+x)*15 +: 15] <= addr + stride_x*x + stride_y*y;
+          addrs[(y*4+x)*(10+LOGCNT) +: (10+LOGCNT)] <= addr + stride_x*x + stride_y*y;
         end
       end
     end
   endgenerate
-
-  // CNT*SZ*SZ
   
-  // this uses 17% of the LUTs
-  reg [511:0] mask;
-
-  // this uses 18% of the LUTs
-  //reg [31:0] ens;
-  //reg [127:0] choice;
-
-  // CNT*18
-  wire [575:0] outs;
-
-  //wire [287:0] dat_r_comb;
+  reg [CNT*SZ_Y*SZ-1:0] mask;
+  wire [LINE*CNT-1:0] outs;
 
   generate
     genvar i,k;
 
     // CNT number of priority encoders of SZ*SZ
-    for (i=0; i<32; i=i+1) begin
+    for (i=0; i<CNT; i=i+1) begin
       reg [9:0] taddr;
-      reg [17:0] in;
-      wire [17:0] out;
-      risk_single_mem rsm(
+      reg [LINE-1:0] in;
+      wire [LINE-1:0] out;
+      risk_single_mem #(LINE) rsm(
         .clk(clk),
         .addr(taddr),
         .data_r(out),
@@ -84,92 +84,22 @@ module risk_mem (
       integer l;
       always @(posedge clk) begin
         //ens[i] <= 'b0;
-        mask[i*16 +: 16] <= 'b0;
-        for (l=0; l<16; l=l+1) begin
-          if (addrs[15*l +: 5] == i) begin
-            mask[i*16 +: 16] <= (1 << l);
-            //ens[i] <= 'b1;
-            //choice[i*4 +: 4] <= l;
-            taddr <= addrs[15*l+5 +: 10];
-            in <= dat_w[18*l +: 18];
+        mask[i*SZ_Y*SZ +: SZ_Y*SZ] <= 'b0;
+        for (l=SZ_Y*SZ-1; l>=0; l=l-1) begin
+          if (addrs[(10+LOGCNT)*l +: LOGCNT] == i) begin
+            mask[i*SZ_Y*SZ +: SZ_Y*SZ] <= (1 << l);
+            taddr <= addrs[(10+LOGCNT)*l+LOGCNT +: 10];
+            in <= dat_w[LINE*l +: LINE];
           end
         end
-
-        /*taddr = 10'b0;
-        in = 18'b0;
-        for (l=0; l<16; l=l+1) begin
-          taddr = taddr | (addrs[15*l+5 +: 10] & {10{mask[i*16 + l]}});
-          in = in | (dat_w[18*l +: 18] & {18{mask[i*16 + l]}});
-        end*/
       end
-      assign outs[i*18 +: 18] = out;
+      assign outs[i*LINE +: LINE] = out;
     end
 
     // this is SZ*SZ number of CNT to 1 muxes. these don't have to be priority encoders, really just a big or gate
-    for (k=0; k<16; k=k+1) begin
-      wire [31:0] lmask;
-      for (i=0; i < 32; i=i+1) assign lmask[i] = mask[i*16 + k];
-
-      // this uses 19%
-      /*reg [5:0] idx;
-
-      integer l;
-      always @(posedge clk) begin
-        for (l=0; l<32; l=l+1)
-          if (lmask[l])
-            idx <= l;
-      end
-
-      always @(posedge clk) begin
-        dat_r[18*k +: 18] <= outs[18*idx +: 18];
-      end*/
-
-      /*always @(posedge clk) begin
-        casez (lmask)
-          'b???????????????????????????????1: dat_r[18*k +: 18] <= outs[18*0 +: 18];
-          'b??????????????????????????????1?: dat_r[18*k +: 18] <= outs[18*1 +: 18];
-          'b00000000000000000000000000000100: dat_r[18*k +: 18] <= outs[18*2 +: 18];
-          'b00000000000000000000000000001000: dat_r[18*k +: 18] <= outs[18*3 +: 18];
-          'b00000000000000000000000000010000: dat_r[18*k +: 18] <= outs[18*4 +: 18];
-          'b00000000000000000000000000100000: dat_r[18*k +: 18] <= outs[18*5 +: 18];
-          'b00000000000000000000000001000000: dat_r[18*k +: 18] <= outs[18*6 +: 18];
-          'b00000000000000000000000010000000: dat_r[18*k +: 18] <= outs[18*7 +: 18];
-          'b00000000000000000000000100000000: dat_r[18*k +: 18] <= outs[18*8 +: 18];
-          'b00000000000000000000001000000000: dat_r[18*k +: 18] <= outs[18*9 +: 18];
-          'b00000000000000000000010000000000: dat_r[18*k +: 18] <= outs[18*10 +: 18];
-          'b00000000000000000000100000000000: dat_r[18*k +: 18] <= outs[18*11 +: 18];
-          'b00000000000000000001000000000000: dat_r[18*k +: 18] <= outs[18*12 +: 18];
-          'b00000000000000000010000000000000: dat_r[18*k +: 18] <= outs[18*13 +: 18];
-          'b00000000000000000100000000000000: dat_r[18*k +: 18] <= outs[18*14 +: 18];
-          'b00000000000000001000000000000000: dat_r[18*k +: 18] <= outs[18*15 +: 18];
-          'b00000000000000010000000000000000: dat_r[18*k +: 18] <= outs[18*16 +: 18];
-          'b00000000000000100000000000000000: dat_r[18*k +: 18] <= outs[18*17 +: 18];
-          'b00000000000001000000000000000000: dat_r[18*k +: 18] <= outs[18*18 +: 18];
-          'b00000000000010000000000000000000: dat_r[18*k +: 18] <= outs[18*19 +: 18];
-          'b00000000000100000000000000000000: dat_r[18*k +: 18] <= outs[18*20 +: 18];
-          'b00000000001000000000000000000000: dat_r[18*k +: 18] <= outs[18*21 +: 18];
-          'b00000000010000000000000000000000: dat_r[18*k +: 18] <= outs[18*22 +: 18];
-          'b00000000100000000000000000000000: dat_r[18*k +: 18] <= outs[18*23 +: 18];
-          'b00000001000000000000000000000000: dat_r[18*k +: 18] <= outs[18*24 +: 18];
-          'b00000010000000000000000000000000: dat_r[18*k +: 18] <= outs[18*25 +: 18];
-          'b00000100000000000000000000000000: dat_r[18*k +: 18] <= outs[18*26 +: 18];
-          'b00001000000000000000000000000000: dat_r[18*k +: 18] <= outs[18*27 +: 18];
-          'b00010000000000000000000000000000: dat_r[18*k +: 18] <= outs[18*28 +: 18];
-          'b00100000000000000000000000000000: dat_r[18*k +: 18] <= outs[18*29 +: 18];
-          'b01000000000000000000000000000000: dat_r[18*k +: 18] <= outs[18*30 +: 18];
-          'b10000000000000000000000000000000: dat_r[18*k +: 18] <= outs[18*31 +: 18];
-        endcase
-      end*/
-
-      // this is the best yet
-      /*integer l;
-      always @(posedge clk) begin
-        for (l=0; l<32; l=l+1)
-          // TODO: replace with and and or
-          //if (ens[l] == 'b1 && choice[l*4 +: 4] == k)
-          if (lmask[l])
-            dat_r[18*k +: 18] <= outs[18*l +: 18];
-      end*/
+    for (k=0; k<SZ_Y*SZ; k=k+1) begin
+      wire [CNT-1:0] lmask;
+      for (i=0; i < CNT; i=i+1) assign lmask[i] = mask[i*SZ_Y*SZ + k];
 
       // https://andy-knowles.github.io/one-hot-mux/
       // down to 14%
@@ -177,21 +107,14 @@ module risk_mem (
       // in final edition, this will be 1024 registers x 2048 BRAMs x 19-bits
       integer l;
       always @(posedge clk) begin
-        //$display("%b", outs);
-        dat_r[18*k +: 18] = 'b0;
-        for (l=0; l<32; l=l+1)
-          dat_r[18*k +: 18] = dat_r[18*k +: 18] | (outs[18*l +: 18] & {18{lmask[l]}});
+        //$display("%b", lmask);
+        if (lmask != 'b0) begin
+          dat_r[LINE*k +: LINE] = 'b0;
+          for (l=0; l<CNT; l=l+1)
+            dat_r[LINE*k +: LINE] = dat_r[LINE*k +: LINE] | (outs[LINE*l +: LINE] & {LINE{lmask[l]}});
+        end
       end
-
-      /*assign dat_r_comb[18*k +: 18] = 'bz;
-      for (i=0; i<32; i=i+1) begin
-        assign dat_r_comb[18*k +: 18] = |(outs[18*i +: 18] & {18{mask[i*16 + k]}});
-      end*/
     end
-
-    /*always @(posedge clk) begin
-      dat_r <= dat_r_comb;
-    end*/
 
   endgenerate
 

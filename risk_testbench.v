@@ -37,7 +37,7 @@ module testbench;
     risk_reg = 5'b00000;
     risk_addr = 0;
     risk_stride_x = 1;
-    risk_stride_y = 1;
+    risk_stride_y = 4;
     #20
     risk_func = 3'b001;
     #20
