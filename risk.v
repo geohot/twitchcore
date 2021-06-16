@@ -2,6 +2,7 @@
 // 4x4 registers
 // we have 270 18-bit rams, need this instead of 19. depth is 1024
 // let's make 128 BRAMs, that's 256 elements of read bandwidth
+// 2304-bit wide databus if we only use one port (36864-bit in big chip)
 // this is also the size of ECC
 // use a 9 bit mantissa (cherryfloat)
 
