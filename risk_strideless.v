@@ -25,27 +25,33 @@ module risk_single_mem (
   //assign data_r = {8'hff, addr};
 endmodule
 
+
 // this is hard to synthesize
 module risk_mem (
   input clk,
   input [14:0] addr,
   input [13:0] stride_x,
   input [13:0] stride_y,
-  input [287:0] dat_w,
+  input [18*4*4-1:0] dat_w,
   input we,
-  output reg [287:0] dat_r
+  output reg [18*4*4-1:0] dat_r
 );
+  parameter LOGCNT=4;
+  parameter CNT=(1<<LOGCNT);
+  parameter SZ=4;
+  parameter BITS=18;
+  parameter LINE=BITS*SZ;
+
   // 1 cycle to get all the addresses
   // 32 BRAMs
-  // SZ*SZ*len(addr)
-  reg [51:0] addrs;
+  reg [(10+LOGCNT)*SZ-1:0] addrs;
 
   generate
     genvar x,y;
     for (y=0; y<1; y=y+1) begin
-      for (x=0; x<4; x=x+1) begin
+      for (x=0; x<SZ; x=x+1) begin
         always @(posedge clk) begin
-          addrs[(y*4+x)*13 +: 13] <= addr + stride_x*x + stride_y*y;
+          addrs[(y*4+x)*(10+LOGCNT) +: (10+LOGCNT)] <= addr + stride_x*x + stride_y*y;
         end
       end
     end
@@ -54,14 +60,14 @@ module risk_mem (
   // CNT*SZ*SZ
   
   // this uses 17% of the LUTs
-  reg [31:0] mask;
+  reg [CNT*SZ-1:0] mask;
 
   // this uses 18% of the LUTs
   //reg [31:0] ens;
   //reg [127:0] choice;
 
   // CNT*72
-  wire [575:0] outs;
+  wire [LINE*CNT-1:0] outs;
 
   //wire [287:0] dat_r_comb;
 
@@ -69,10 +75,10 @@ module risk_mem (
     genvar i,k;
 
     // CNT number of priority encoders of SZ*SZ
-    for (i=0; i<8; i=i+1) begin
+    for (i=0; i<CNT; i=i+1) begin
       reg [9:0] taddr;
-      reg [71:0] in;
-      wire [71:0] out;
+      reg [LINE-1:0] in;
+      wire [LINE-1:0] out;
       risk_single_mem rsm(
         .clk(clk),
         .addr(taddr),
@@ -84,31 +90,22 @@ module risk_mem (
       integer l;
       always @(posedge clk) begin
         //ens[i] <= 'b0;
-        mask[i*4 +: 4] <= 'b0;
-        for (l=0; l<4; l=l+1) begin
-          if (addrs[13*l +: 3] == i) begin
-            mask[i*4 +: 4] <= (1 << l);
-            //ens[i] <= 'b1;
-            //choice[i*4 +: 4] <= l;
-            taddr <= addrs[13*l+3 +: 10];
-            in <= dat_w[72*i +: 72];
+        mask[i*SZ +: SZ] <= 'b0;
+        for (l=SZ-1; l>=0; l=l-1) begin
+          if (addrs[(10+LOGCNT)*l +: LOGCNT] == i) begin
+            mask[i*SZ +: SZ] <= (1 << l);
+            taddr <= addrs[(10+LOGCNT)*l+LOGCNT +: 10];
+            in <= dat_w[LINE*l +: LINE];
           end
         end
-
-        /*taddr = 10'b0;
-        in = 18'b0;
-        for (l=0; l<16; l=l+1) begin
-          taddr = taddr | (addrs[15*l+5 +: 10] & {10{mask[i*16 + l]}});
-          in = in | (dat_w[18*l +: 18] & {18{mask[i*16 + l]}});
-        end*/
       end
-      assign outs[i*72 +: 72] = out;
+      assign outs[i*LINE +: LINE] = out;
     end
 
     // this is SZ*SZ number of CNT to 1 muxes. these don't have to be priority encoders, really just a big or gate
-    for (k=0; k<4; k=k+1) begin
-      wire [7:0] lmask;
-      for (i=0; i < 8; i=i+1) assign lmask[i] = mask[i*4 + k];
+    for (k=0; k<SZ; k=k+1) begin
+      wire [CNT-1:0] lmask;
+      for (i=0; i < CNT; i=i+1) assign lmask[i] = mask[i*SZ + k];
 
       // https://andy-knowles.github.io/one-hot-mux/
       // down to 14%
@@ -116,10 +113,12 @@ module risk_mem (
       // in final edition, this will be 1024 registers x 2048 BRAMs x 19-bits
       integer l;
       always @(posedge clk) begin
-        $display("%h %b", outs, lmask);
-        dat_r[72*k +: 72] = 'b0;
-        for (l=0; l<8; l=l+1)
-          dat_r[72*k +: 72] = dat_r[72*k +: 72] | (outs[72*l +: 72] & {72{lmask[l]}});
+        //$display("%b", lmask);
+        if (lmask != 'b0) begin
+          dat_r[LINE*k +: LINE] = 'b0;
+          for (l=0; l<CNT; l=l+1)
+            dat_r[LINE*k +: LINE] = dat_r[LINE*k +: LINE] | (outs[LINE*l +: LINE] & {LINE{lmask[l]}});
+        end
       end
     end
 

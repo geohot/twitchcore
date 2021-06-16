@@ -36,8 +36,8 @@ module testbench;
     risk_func = 3'b010;
     risk_reg = 5'b00000;
     risk_addr = 0;
-    risk_stride_x = 3;
-    risk_stride_y = 3;
+    risk_stride_x = 1;
+    risk_stride_y = 1;
     #20
     risk_func = 3'b001;
     #20
@@ -46,7 +46,11 @@ module testbench;
 
   always @(posedge clk) begin
     cnt <= cnt + 1;
-    $display("%d %x %x", cnt, risk_reg_view, ri.rm.addrs);
+    $display("%d %x -- %x %x %x %x", cnt, risk_reg_view,
+      ri.rm.addrs[14*3 +: 14],
+      ri.rm.addrs[14*2 +: 14],
+      ri.rm.addrs[14*1 +: 14],
+      ri.rm.addrs[14*0 +: 14]);
     //$display("%x", ri.rm.ens);
     //$display("%x", ri.rm.ens);
   end
