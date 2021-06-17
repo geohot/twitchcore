@@ -1,6 +1,8 @@
 # This code is mostly taken from SERV project by Olof Kindgren
 # Please take a look at the project: https://github.com/olofk/serv
 
+all: $(patsubst %.S,%.elf,$(wildcard *.S))
+
 %.elf: %.S
 	riscv64-unknown-elf-gcc -nostartfiles -march=rv32i -mabi=ilp32 -Tlink.ld -DTEST_FUNC_NAME=$(notdir $(basename $<)) \
 		-DTEST_FUNC_TXT='"$(notdir $(basename $<))"' -DTEST_FUNC_RET=$(notdir $(basename $<))_ret $< -o $(notdir $(basename $<)).elf
