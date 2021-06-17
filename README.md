@@ -2,6 +2,42 @@
 
 A RISC-V core, first in Python, then in Verilog, then on FPGA.
 
+# Getting Started
+
+### Prerequisites
+* icarus-verilog 
+* riscv-gnu-toolchain
+```sh
+brew install icarus-verilog riscv-gnu-toolchain
+```
+
+### Installation
+1. Clone this repo
+```sh
+git clone https://github.com/geohot/twitchcore
+cd twitchcore
+ ```
+2. Clone and build `riscv-tests`
+```sh
+git clone https://github.com/riscv/riscv-tests
+cd riscv-tests
+git submodule update --init --recursive
+autoconf
+./configure
+make
+make install
+cd ..
+```
+3. Create a virtual environment (optional)
+```sh
+python3 -m venv env
+source env/bin/activate
+```
+4. Install Python packages
+```sh
+pip install -r requirements.txt
+```
+
 # TODO
 
 * Fix unaligned loads/stores (I think this is good now, at least acceptable)
