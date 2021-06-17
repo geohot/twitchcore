@@ -50,11 +50,20 @@ matmul
 * rs1 = 2x4-bit masks + 17-bit address
 * rs2 = 2x16-bit strides
 
+# How to run using FuseSoC:
+(FuseSoc)[https://github.com/olofk/fusesoc] is a package manager for HDL code. FuseSoC allows us to use different tools (Vivado, iVerilog, ...) with different targets (simulation, synthesis, implementation) using only one unified script. To use FuseSoC, first install FuseSoC:
 
-# How to run a RISC-V test:
-You can run a risc-v test (source code available in firmwares) by:
+     python3 -m pip install fusesoc    
+Then add twitchcore to your fusesoc libraries:
 
-     ./simulate.sh firmwares/add.hex    
+     git clone https://github.com/geohot/twitchcore.git
+     cd twitchcore
+     fusesoc library add twitchcore .
+
+
+Finally, run a target (for instance simulation) as below:
+
+     fusesoc run --target=sim twitchcore --firmware firmwares/add.hex
 
 # View Simulation Waveforms:
 
