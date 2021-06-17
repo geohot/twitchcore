@@ -90,3 +90,9 @@ matmul
 You can run a risc-v test (source code available in firmwares) by:
 
      ./simulate.sh firmwares/add.hex    
+
+# View Simulation Waveform:
+
+To view waveforms, you first need to install [gtkwave](http://gtkwave.sourceforge.net/). Then you can open waveforms by:
+
+     gtkwave waves.vcd

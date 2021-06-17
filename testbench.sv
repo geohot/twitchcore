@@ -58,6 +58,8 @@ module testbench;
 
   initial begin
     int char_0, char_1, char_2, char_3;
+    $dumpfile("waves.vcd");
+    $dumpvars(0,testbench);
     #50000
     $display("no more work ", cnt);
     // At the end of risc-v test, we should see OK\n or
