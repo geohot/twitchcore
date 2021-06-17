@@ -1,15 +1,27 @@
 module testbench;
-	reg clk;
+  reg clk;
   reg resetn;
   wire trap;
   reg [7:0] cnt;
 
-	initial begin
-		clk = 0;
+  twitchcore c (
+    .clk (clk),
+    .resetn (resetn),
+    .trap (trap)
+  );
+
+  initial begin
+    string firmware;
+    clk = 0;
     cnt = 0;
+    // put core to reset while initializing ram
+    resetn = 0;
+    $display("programming the mem", cnt);
+    $readmemh($value$plusargs("firmware=%s", firmware), c.r.mem);
+    $display("doing work", cnt);
+    @(posedge clk);
     resetn = 1;
-		$display("doing work", cnt);
-	end
+  end
 
   always
     #5 clk = !clk;
@@ -20,11 +32,6 @@ module testbench;
   end
 
 
-  twitchcore c (
-    .clk (clk),
-    .resetn (resetn),
-    .trap (trap)
-  );
 
   always @(posedge clk) begin
     if (c.step[6] == 1'b1) begin

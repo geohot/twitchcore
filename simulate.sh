@@ -1,3 +1,3 @@
 #!/bin/bash
-iverilog -o run testbench.v cpu.v risk.v && vvp run
+iverilog -g2012 -o run testbench.v cpu.v risk.v && vvp run +firmware=$1
 
