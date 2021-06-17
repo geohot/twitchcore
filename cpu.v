@@ -78,7 +78,6 @@ module ram (
 
   // 16 KB
   reg [31:0] mem [0:4095];
-  initial $readmemh("test-cache/rv32ui-p-sh", mem);
   wire [31:0] dt_data = mem[d_addr[13:2]];
 
   always @(posedge clk) begin
