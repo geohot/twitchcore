@@ -16,8 +16,16 @@ module testbench;
     cnt = 0;
     // put core to reset while initializing ram
     resetn = 0;
-    $display("programming the mem", cnt);
-    $readmemh($value$plusargs("firmware=%s", firmware), c.r.mem);
+
+    $display("programming the mem");
+    if ($value$plusargs("firmware=%s", firmware)) begin
+        $display($sformatf("Using %s as firmware", firmware));
+    end else begin
+        $display($sformatf("Expecting a command line argument %s", firmware), "ERROR");
+        $finish;
+    end
+    $readmemh(firmware, c.r.mem);
+
     $display("doing work", cnt);
     @(posedge clk);
     resetn = 1;
