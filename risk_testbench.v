@@ -16,13 +16,18 @@ module testbench;
     $finish;
   end
 
+  parameter SZ = 4;
+  parameter LOGCNT = 5;
+  parameter BITS = 18;
+
   reg [2:0] risk_func;
   reg [4:0] risk_reg;
-  reg [14:0] risk_addr;
-  reg [13:0] risk_stride_x;
-  reg [13:0] risk_stride_y;
-  wire [287:0] risk_reg_view;
-  risk ri (
+  reg [10+LOGCNT-1:0] risk_addr;
+  reg [10+LOGCNT-2:0] risk_stride_x;
+  reg [10+LOGCNT-2:0] risk_stride_y;
+  wire [BITS*SZ*SZ-1:0] risk_reg_view;
+
+  risk #(SZ, LOGCNT, BITS) ri (
     .clk (clk),
     .risk_func (risk_func),
     .risk_reg (risk_reg),

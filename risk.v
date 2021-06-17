@@ -25,26 +25,24 @@ endmodule
 
 
 // this is hard to synthesize
-module risk_mem #(parameter SZ=4) (
+module risk_mem #(parameter SZ=4, LOGCNT=5, BITS=18) (
   input clk,
-  input [14:0] addr,
-  input [13:0] stride_x,
-  input [13:0] stride_y,
-  input [18*4*4-1:0] dat_w,
+  input [10+LOGCNT-1:0] addr,
+  input [10+LOGCNT-2:0] stride_x,
+  input [10+LOGCNT-2:0] stride_y,
+  input [BITS*SZ*SZ-1:0] dat_w,
   input we,
-  output reg [18*4*4-1:0] dat_r
+  output reg [BITS*SZ*SZ-1:0] dat_r
 );
-  parameter LOGCNT=5;
   parameter CNT=(1<<LOGCNT);
-  parameter BITS=18;
 
   // strides
-  parameter SZ_Y=SZ;
-  parameter LINE=BITS;
+  //parameter SZ_Y=SZ;
+  //parameter LINE=BITS;
 
   // strideless
-  //parameter SZ_Y=1;
-  //parameter LINE=BITS*SZ;
+  parameter SZ_Y=1;
+  parameter LINE=BITS*SZ;
 
   // 1 cycle to get all the addresses
   reg [(10+LOGCNT)*SZ*SZ_Y-1:0] addrs;
@@ -123,19 +121,21 @@ module risk_alu (
 
 endmodule
 
-module risk (
+module risk #(parameter SZ=4, LOGCNT=5, BITS=18) (
   input clk,
   input [2:0] risk_func,
   input [4:0] risk_reg,
-  input [14:0] risk_addr,
-  input [13:0] risk_stride_x,
-  input [13:0] risk_stride_y,
-  output [287:0] reg_view
+  input [10+LOGCNT-1:0] risk_addr,
+  input [10+LOGCNT-2:0] risk_stride_x,
+  input [10+LOGCNT-2:0] risk_stride_y,
+  output [BITS*SZ*SZ-1:0] reg_view
 );
-  wire [287:0] dat_r;
-  reg [287:0] dat_w;
+  parameter REGSIZE = BITS*SZ*SZ;
+
+  wire [REGSIZE-1:0] dat_r;
+  reg [REGSIZE-1:0] dat_w;
   reg we;
-  risk_mem rm(
+  risk_mem #(SZ, LOGCNT, BITS) rm(
     .clk(clk),
     .addr(risk_addr),
     .stride_x(risk_stride_x),
@@ -145,7 +145,7 @@ module risk (
     .dat_w(dat_w)
   );
 
-  reg [287:0] regs [0:2];
+  reg [REGSIZE-1:0] regs [0:2];
   assign reg_view = regs[0];
   always @(posedge clk) begin
     we <= 1'b0;
