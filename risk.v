@@ -37,28 +37,28 @@ module risk_mem #(parameter SZ=4, LOGCNT=5, BITS=18) (
   parameter CNT=(1<<LOGCNT);
 
   // strides
-  //parameter SZ_Y=SZ;
+  //parameter SZ_X=SZ;
   //parameter LINE=BITS;
 
   // strideless
-  parameter SZ_Y=1;
+  parameter SZ_X=1;
   parameter LINE=BITS*SZ;
 
   // 1 cycle to get all the addresses
-  reg [(10+LOGCNT)*SZ*SZ_Y-1:0] addrs;
+  reg [(10+LOGCNT)*SZ*SZ_X-1:0] addrs;
 
   generate
     genvar x,y;
-    for (y=0; y<SZ_Y; y=y+1) begin
-      for (x=0; x<SZ; x=x+1) begin
+    for (y=0; y<SZ; y=y+1) begin
+      for (x=0; x<SZ_X; x=x+1) begin
         always @(posedge clk) begin
-          addrs[(y*4+x)*(10+LOGCNT) +: (10+LOGCNT)] <= addr + stride_x*x + stride_y*y;
+          addrs[(y*SZ_X+x)*(10+LOGCNT) +: (10+LOGCNT)] <= addr + stride_x*x + stride_y*y;
         end
       end
     end
   endgenerate
   
-  reg [CNT*SZ_Y*SZ-1:0] mask;
+  reg [CNT*SZ_X*SZ-1:0] mask;
   wire [LINE*CNT-1:0] outs;
 
   generate
@@ -80,10 +80,10 @@ module risk_mem #(parameter SZ=4, LOGCNT=5, BITS=18) (
       integer l;
       always @(posedge clk) begin
         //ens[i] <= 'b0;
-        mask[i*SZ_Y*SZ +: SZ_Y*SZ] <= 'b0;
-        for (l=SZ_Y*SZ-1; l>=0; l=l-1) begin
+        mask[i*SZ_X*SZ +: SZ_X*SZ] <= 'b0;
+        for (l=SZ_X*SZ-1; l>=0; l=l-1) begin
           if (addrs[(10+LOGCNT)*l +: LOGCNT] == i) begin
-            mask[i*SZ_Y*SZ +: SZ_Y*SZ] <= (1 << l);
+            mask[i*SZ_X*SZ +: SZ_X*SZ] <= (1 << l);
             taddr <= addrs[(10+LOGCNT)*l+LOGCNT +: 10];
             in <= dat_w[LINE*l +: LINE];
           end
@@ -93,9 +93,9 @@ module risk_mem #(parameter SZ=4, LOGCNT=5, BITS=18) (
     end
 
     // this is SZ*SZ number of CNT to 1 muxes. these don't have to be priority encoders, really just a big or gate
-    for (k=0; k<SZ_Y*SZ; k=k+1) begin
+    for (k=0; k<SZ_X*SZ; k=k+1) begin
       wire [CNT-1:0] lmask;
-      for (i=0; i < CNT; i=i+1) assign lmask[i] = mask[i*SZ_Y*SZ + k];
+      for (i=0; i < CNT; i=i+1) assign lmask[i] = mask[i*SZ_X*SZ + k];
 
       // https://andy-knowles.github.io/one-hot-mux/
       // in this chip, this is 16 registers x 32 BRAMs x 18-bits
@@ -120,47 +120,3 @@ module risk_alu (
 );
 
 endmodule
-
-module risk #(parameter SZ=4, LOGCNT=5, BITS=18) (
-  input clk,
-  input [2:0] risk_func,
-  input [4:0] risk_reg,
-  input [10+LOGCNT-1:0] risk_addr,
-  input [10+LOGCNT-2:0] risk_stride_x,
-  input [10+LOGCNT-2:0] risk_stride_y,
-  output [BITS*SZ*SZ-1:0] reg_view
-);
-  parameter REGSIZE = BITS*SZ*SZ;
-
-  wire [REGSIZE-1:0] dat_r;
-  reg [REGSIZE-1:0] dat_w;
-  reg we;
-  risk_mem #(SZ, LOGCNT, BITS) rm(
-    .clk(clk),
-    .addr(risk_addr),
-    .stride_x(risk_stride_x),
-    .stride_y(risk_stride_y),
-    .we(we),
-    .dat_r(dat_r),
-    .dat_w(dat_w)
-  );
-
-  reg [REGSIZE-1:0] regs [0:2];
-  assign reg_view = regs[0];
-  always @(posedge clk) begin
-    we <= 1'b0;
-    case (risk_func)
-      // load
-      3'b000: regs[risk_reg] <= dat_r;
-      // store
-      3'b001: begin
-        dat_w <= regs[risk_reg];
-        we <= 1'b1;
-      end
-      3'b010: regs[risk_reg] <= 'b0;
-    endcase
-  end
-
-endmodule
-
-
