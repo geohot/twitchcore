@@ -1,0 +1,99 @@
+CAPI=2:
+name : ::twitchcore:0
+description: A RISC-V core, first in Python, then in Verilog, then on FPGA.
+
+filesets:
+    rtl:
+        file_type : systemVerilogSource
+        files:
+            - vsrc/rv32_instr.svh:
+                is_include_file: true
+            - vsrc/rv32_imm_gen.sv
+            - vsrc/rv32_decoder.sv
+            - vsrc/bram_32Kb.v:
+                file_type : verilogSource
+            - vsrc/blk_mem_gen_v8_4.v:
+                file_type : verilogSource
+            - vsrc/rv32_data_memory.sv
+            - vsrc/rv32_instruction_memory.sv
+            - vsrc/rv32_alu.sv
+            - vsrc/rv32_regfile.sv
+            - vsrc/rv32_barrel_regfiles.sv
+            - vsrc/rv32_core.sv
+            - vsrc/rv32_next_pc.sv
+            - vsrc/rv32_csr.sv
+            - vsrc/rv32_barrel_csrfiles.sv
+        file_type : systemVerilogSource
+    synth:
+        file_type : systemVerilogSource
+        files:
+            - verification/lib/pito/pito_inf.svh:
+                is_include_file: true
+            - verification/lib/rv32/rv32_pkg.sv
+            - verification/lib/pito/pito_pkg.sv
+            - verification/lib/rv32/rv32_defines.svh: 
+                is_include_file: true
+            - vsrc/rv32_imm_gen.sv
+            - vsrc/rv32_decoder.sv
+            - vsrc/rv32_data_memory.sv
+            - vsrc/rv32_instruction_memory.sv
+            - vsrc/rv32_alu.sv
+            - vsrc/rv32_regfile.sv
+            - vsrc/rv32_barrel_regfiles.sv
+            - vsrc/rv32_core.sv
+            - vsrc/rv32_next_pc.sv
+            - vsrc/rv32_csr.sv
+            - vsrc/rv32_barrel_csrfiles.sv
+            - vsrc/blk_mem_gen_v8_4.v:
+                file_type : verilogSource
+            - vsrc/bram_32Kb.v:
+                file_type : verilogSource
+            - ip/xilinx/bram_32Kb.xci:
+                file_type: xci
+            - synthesis/constraint_files/pito_core.xdc:
+                file_type: xdc
+    tb:
+        files:
+            - verification/lib/rv32/rv32_defines.svh: 
+                is_include_file: true
+            - verification/lib/testbench/testbench_macros.svh:
+                is_include_file: true
+            - verification/lib/rv32/rv32_pkg.sv
+            - verification/lib/pito/pito_pkg.sv
+            - verification/lib/utils/utils.sv
+            - verification/lib/rv32/rv32_utils.sv
+            - verification/lib/pito/pito_inf.svh:
+                is_include_file: true
+            - verification/lib/pito/pito_monitor.sv
+            - verification/lib/testbench/testbench_config.sv
+            - verification/lib/testbench/testbench_base.sv
+            - verification/tests/core/core_tester.sv:
+                is_include_file: true
+            - verification/lib/testbench/testbench_top.sv
+        file_type : systemVerilogSource
+targets:
+    sim:
+        default_tool: xsim 
+        filesets:
+            - tb
+            - rtl
+        description: Simulate the design
+        tools: 
+            xsim:
+                xelab_options: [--debug, typical, -L, secureip, -L, unisims_ver, -L, unimacro_ver, -L, work.glbl, -L, blk_mem_gen_v8_4_3, --timescale, 1ns/1ps]
+        parameters: [firmware]
+        toplevel: testbench_top
+    synth:
+        description: Synthesize the design for an FPGA board
+        filesets:
+            - synth
+        default_tool: vivado
+        tools:
+          vivado:
+            part: xcku040-fbva676-2-e
+        toplevel: [rv32_core]
+parameters:
+    firmware:
+        datatype  : file
+        default   : /users/hemmat/MyRepos/pito_riscv/verification/tests/core/firmwares/add.hex
+        paramtype : plusarg
