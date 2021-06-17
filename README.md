@@ -85,3 +85,8 @@ matmul
 * rs1 = 2x4-bit masks + 17-bit address
 * rs2 = 2x16-bit strides
 
+
+# How to run a RISC-V test:
+You can run a risc-v test (source code available in firmwares) by:
+
+     ./simulate.sh firmwares/add.hex    

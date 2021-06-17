@@ -1,4 +1,7 @@
+`define hdl_path_regf c.regs
+
 module testbench;
+
   reg clk;
   reg resetn;
   wire trap;
@@ -16,8 +19,16 @@ module testbench;
     cnt = 0;
     // put core to reset while initializing ram
     resetn = 0;
-    $display("programming the mem", cnt);
-    $readmemh($value$plusargs("firmware=%s", firmware), c.r.mem);
+
+    $display("programming the mem");
+    if ($value$plusargs("firmware=%s", firmware)) begin
+        $display($sformatf("Using %s as firmware", firmware));
+    end else begin
+        $display($sformatf("Expecting a command line argument %s", firmware), "ERROR");
+        $finish;
+    end
+    $readmemh(firmware, c.r.mem);
+
     $display("doing work", cnt);
     @(posedge clk);
     resetn = 1;
@@ -46,8 +57,16 @@ module testbench;
   end
 
   initial begin
+    int char_0, char_1, char_2, char_3;
     #50000
     $display("no more work ", cnt);
+    // At the end of risc-v test, we should see OK\n or
+    // Err\n in registers a0-a3 ()
+    char_0 = `hdl_path_regf[10];
+    char_1 = `hdl_path_regf[11];
+    char_2 = `hdl_path_regf[12];
+    char_3 = `hdl_path_regf[13];
+    $display($sformatf("RISC-V TEST Result: %s%s%s%s", char_0, char_1, char_2, char_3));
     $finish;
   end
 endmodule
