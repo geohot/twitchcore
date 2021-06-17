@@ -1,4 +1,5 @@
-# twitchcore
+# tvef
+witchcore
 
 A RISC-V core, first in Python, then in Verilog, then on FPGA.
 
@@ -55,7 +56,7 @@ You can run a risc-v test (source code available in firmwares) by:
 
      ./simulate.sh firmwares/add.hex    
 
-# View Simulation Waveform:
+# View Simulation Waveforms:
 
 To view waveforms, you first need to install [gtkwave](http://gtkwave.sourceforge.net/). Then you can open waveforms by:
 
