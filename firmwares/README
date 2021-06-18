@@ -1,5 +1,0 @@
-Tests from https://github.com/riscv/riscv-tests/tree/master/isa/rv32ui
-
-The makefile can generate hex, elf and object files, to generate hex file run the following:
-
-    make TESTNAME.hex

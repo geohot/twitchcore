@@ -182,7 +182,7 @@ module twitchcore (
     .out (cond_out)
   );
 
-  parameter SZ = 4;
+  /*parameter SZ = 4;
   parameter LOGCNT = 5;
   parameter BITS = 18;
 
@@ -201,7 +201,7 @@ module twitchcore (
     .risk_stride_x (risk_stride_x),
     .risk_stride_y (risk_stride_y),
     .reg_view (risk_reg_view)
-  );
+  );*/
 
   integer i;
   always @(posedge clk) begin
@@ -282,7 +282,7 @@ module twitchcore (
         reg_writeback <= 1'b1;
       end
 
-      7'b1111111: begin // RISK
+      /*7'b1111111: begin // RISK
         risk_func <= funct3;
         risk_addr <= regs[rs1];
         risk_stride_x <= regs[rs2][31:16];
@@ -303,7 +303,7 @@ module twitchcore (
         endcase
         alu_left <= 32'b0;
         reg_writeback <= 1'b1;
-      end
+      end*/
 
       7'b1110011: begin // SYSTEM
         trap <= regs[3] > 0;
