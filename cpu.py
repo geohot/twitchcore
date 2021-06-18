@@ -34,20 +34,36 @@ def reset():
 from enum import Enum
 # RV32I Base Instruction Set
 class Ops(Enum):
-  LUI = 0b0110111    # load upper immediate
-  LOAD = 0b0000011
-  STORE = 0b0100011
+  LOAD      = 0b0000011
+  LOAD_FP   = 0b0000111
+  CUSTOM_0  = 0b0001011
+  MISC_MEM  = 0b0001111
+  OP_IMM    = 0b0010011
+  AUIPC     = 0b0010111  # add upper immediate to pc
+  OP_IMM_32 = 0b0011011
 
-  AUIPC = 0b0010111  # add upper immediate to pc
-  BRANCH = 0b1100011
-  JAL = 0b1101111
-  JALR = 0b1100111
+  STORE     = 0b0100011
+  STORE_FP  = 0b0100111
+  CUSTOM_1  = 0b0101011
+  AMO       = 0b0101111
+  OP        = 0b0110011
+  LUI       = 0b0110111    # load upper immediate
+  OP_32     = 0b0111011
 
-  IMM = 0b0010011
-  OP = 0b0110011
+  MADD      = 0b1000011
+  MSUB      = 0b1000111
+  NMSUB     = 0b1001011
+  NMADD     = 0b1001111
+  OP_FP     = 0b1010011
+  CUSTOM_2_RV128 = 0b1011011
 
-  MISC = 0b0001111
-  SYSTEM = 0b1110011
+  BRANCH    = 0b1100011
+  JALR      = 0b1100111
+  JAL       = 0b1101111
+  SYSTEM    = 0b1110011
+  CUSTOM_3_RV128 = 0b1111011
+
+
 
 class Funct3(Enum):
   ADD = SUB = ADDI = 0b000
@@ -185,16 +201,16 @@ def step():
   vpc = regfile[PC]
 
   # *** Execute ***
-  reg_writeback = opcode in [Ops.JAL, Ops.JALR, Ops.AUIPC, Ops.LUI, Ops.OP, Ops.IMM, Ops.LOAD]
+  reg_writeback = opcode in [Ops.JAL, Ops.JALR, Ops.AUIPC, Ops.LUI, Ops.OP, Ops.OP_IMM, Ops.LOAD]
   do_load = opcode == Ops.LOAD
   do_store = opcode == Ops.STORE
 
-  alt = (funct7 == 0b0100000) and (opcode == Ops.OP or (opcode == Ops.IMM and funct3 == Funct3.SRAI))
+  alt = (funct7 == 0b0100000) and (opcode == Ops.OP or (opcode == Ops.OP_IMM and funct3 == Funct3.SRAI))
   imm = {Ops.JAL: imm_j, Ops.JALR: imm_i, Ops.BRANCH: imm_b, Ops.AUIPC: imm_u,
-         Ops.LUI: imm_u, Ops.OP: vs2, Ops.IMM: imm_i, Ops.LOAD: imm_i, Ops.STORE: imm_s,
-         Ops.SYSTEM: imm_i, Ops.MISC: imm_i}[opcode]
+         Ops.LUI: imm_u, Ops.OP: vs2, Ops.OP_IMM: imm_i, Ops.LOAD: imm_i, Ops.STORE: imm_s,
+         Ops.SYSTEM: imm_i, Ops.MISC_MEM: imm_i}[opcode]
   arith_left = vpc if opcode in [Ops.JAL, Ops.BRANCH, Ops.AUIPC] else (0 if opcode == Ops.LUI else vs1)
-  arith_func = funct3 if opcode in [Ops.OP, Ops.IMM] else Funct3.ADD
+  arith_func = funct3 if opcode in [Ops.OP, Ops.OP_IMM] else Funct3.ADD
   pend_is_new_pc = opcode in [Ops.JAL, Ops.JALR] or (opcode == Ops.BRANCH and cond(funct3, vs1, vs2))
   pend = arith(arith_func, arith_left, imm, alt)
 
