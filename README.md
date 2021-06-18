@@ -6,9 +6,10 @@ A RISC-V core, first in Python, then in Verilog, then on FPGA.
 
 ### Prerequisites
 * icarus-verilog 
-* riscv-gnu-toolchain
+* riscv-tools
 ```sh
-brew install icarus-verilog riscv-gnu-toolchain
+brew tap riscv/riscv
+brew install icarus-verilog riscv-tools
 ```
 
 ### Installation
