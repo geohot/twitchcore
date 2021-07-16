@@ -172,9 +172,9 @@ def step():
   funct7 = gibi(31, 25)
   imm_i = sign_extend(gibi(31, 20), 12)
   imm_s = sign_extend(gibi(31, 25)<<5 | gibi(11, 7), 12)
-  imm_b = sign_extend((gibi(32, 31)<<12) | (gibi(30, 25)<<5) | (gibi(11, 8)<<1) | (gibi(8, 7)<<11), 13)
+  imm_b = sign_extend((gibi(31, 31)<<12) | (gibi(30, 25)<<5) | (gibi(11, 8)<<1) | (gibi(7, 7)<<11), 13)
   imm_u = sign_extend(gibi(31, 12)<<12, 32)
-  imm_j = sign_extend((gibi(32, 31)<<20) | (gibi(30, 21)<<1) | (gibi(21, 20)<<11) | (gibi(19, 12)<<12), 21)
+  imm_j = sign_extend((gibi(31, 31)<<20) | (gibi(30, 21)<<1) | (gibi(20, 20)<<11) | (gibi(19, 12)<<12), 21)
 
   # register write set up
   rd = gibi(11, 7)
