@@ -1,6 +1,6 @@
-# twitchcore
+# cherrycore
 
-A RISC-V core, first in Python, then in Verilog, then on FPGA.
+A deep learnin training core, first in Verilog, then on FPGA, then on tinygrad, then on pytorch.
 
 # Getting Started
 
@@ -41,15 +41,6 @@ pip install -r requirements.txt
 # TODO
 
 * Fix unaligned loads/stores (I think this is good now, at least acceptable)
-* Make pipelining work
-* Add M instructions for fast multiply and divide
-* Add better introspection
-* Switch to 64-bit
-* Add "RISK" ML accelerator ("K" Standard Extension)
-
-# TODO (later)
-
-* Many ROBs like M1 go very fast
 
 # Notes on Memory system
 
@@ -63,6 +54,10 @@ We want to support a load/store instruction into 32x32 matrix register (2432 byt
 
 Use some hash function on the addresses to avoid "bank conflicts", can upper bound the fetch time.
 
+TODO
+* load with stride 0 in X
+* signal stalls due to bank conflicts
+
 # Notes on ALU
 
 matmul/mulacc are the big ones, 65536 FLOPS and 2048 FLOPS respectively
@@ -71,11 +66,10 @@ Have to think this through more with the reduce instructions too.
 
 It's okay if the matmul takes multiple cycles I think, but the mulacc would be nice to be one.
 
-matmul
-* load with stride 0 in X
-* mul
-* reduce
-
+TODO
+* add tests for matmul
+* add remaining vector ops
+* add reduce ops
 
 # Notes on mini edition in 100T
 
@@ -84,9 +78,3 @@ matmul
 * 128k elements = 17-bit address path
 * rs1 = 2x4-bit masks + 17-bit address
 * rs2 = 2x16-bit strides
-
-
-# How to run a RISC-V test:
-You can run a risc-v test (source code available in firmwares) by:
-
-     ./simulate.sh firmwares/add.hex    

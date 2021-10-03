@@ -6,3 +6,4 @@ run
 out
 obj_dir
 notebooks
+__pycache__
