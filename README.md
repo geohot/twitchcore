@@ -46,7 +46,13 @@ pip install -r requirements.txt
 
 # TODO
 
+* Write verilog. Search for the word TODO throughout this README
 * Fix unaligned loads/stores (I think this is good now, at least acceptable)
+* Clean up this repo
+* Add github actions tests
+* Regression testing
+* Improve this readme
+
 
 # Superscalar Notes
 
