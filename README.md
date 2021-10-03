@@ -43,6 +43,22 @@ pip install -r requirements.txt
 
 * Fix unaligned loads/stores (I think this is good now, at least acceptable)
 
+# Superscalar Notes
+
+We can cheat on the superscalar. All deep learning kernels have lots of loops (to tile the tensors they are computing on), and each iteration of the loop can be run independently. Kernel programmer will add an annotation to their loop when it's OK to execute the iterations out of order.
+
+Example
+
+```python
+@cherry_loop(independent=True)
+for i in range(2):
+     load
+     load
+     matmul
+     store
+```
+Instead of executing load, load, matmul, store, load, load, matmul, store. We will do some time multiplexing on each loop iteration. We execute, load, load, load, load, matmul, matmul, store, store. This hides the latency. NVIDIA does a similar thing but the CUDA programmer must think about threads and warps. Our "threads" are implicit.
+
 # Notes on Memory system
 
 8 million elements (20MB) = 23-bit address path
