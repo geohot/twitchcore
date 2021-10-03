@@ -62,6 +62,19 @@ for i in range(2):
 ```
 Instead of executing load, load, matmul, store, load, load, matmul, store. We will do some time multiplexing on each loop iteration. We execute, load, load, load, load, matmul, matmul, store, store. This hides the latency. NVIDIA does a similar thing but the CUDA programmer must think about threads and warps. Our "threads" are implicit.
 
+# Tensor Cores
+
+These all should be straightforward but annoying to get to IEEE specification.
+
+They can be pipelined. Ideal latency is 3 or less cycles. Every doubling of latency requires us to double our superscalar width which means double the L0 registers which means double the processing core multiplexer which means we not happy.
+
+* Test floating point multiply
+* Write & test floating point add
+* Write & test floating point fused multiply add
+* Write & test Relu (should be an easy intro, save for noobs)
+* Write & test GT0 (should be an easy intro, save for noobs)
+* Write & test the other unops and binops
+
 # Notes on Memory system
 
 8 million elements (20MB) = 23-bit address path
