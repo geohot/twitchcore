@@ -5,7 +5,7 @@ A deep learning training core, first in Verilog, then on FPGA, then on tinygrad,
 ISA in Cherry ISA.pdf
 Superscalar notes below
 
-![How faster than 3090](https://docs.google.com/presentation/d/1JEysqlI_p8qhONiCQVEdrohAqypjY5eJTStA6SZking/edit#slide=id.p)
+[How faster than 3090](https://docs.google.com/presentation/d/1JEysqlI_p8qhONiCQVEdrohAqypjY5eJTStA6SZking/edit#slide=id.p)
 
 ![Diagram of Cherry Core architecture](https://github.com/evanmays/cherrycore/blob/master/architecture.png?raw=true)
 # Getting Started
