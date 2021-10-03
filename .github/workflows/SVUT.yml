@@ -11,5 +11,5 @@ jobs:
 #      - run: sudo apt-get install iverilog
 #      - run: sudo apt-get install verilator
       - run: iverilog -V
-      - uses: lhotari/action-upterm@v1
+#      - uses: lhotari/action-upterm@v1
       - run: bash regression.sh
