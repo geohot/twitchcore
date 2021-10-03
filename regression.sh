@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# Homebrew install
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# Icarus Verilog install
+brew install icarus-verilog
+
 # From SVUT examples
 # install SVUT
 export SVUT=$HOME/.svut

@@ -7,8 +7,8 @@ jobs:
       - uses: actions/checkout@v2
 #      - run: sudo add-apt-repository ppa:team-electronics/ppa -y
       - run: sudo apt-get update -q
-      - run: sudo apt-get install iverilog
-      - run: sudo apt-get install verilator
+#      - run: sudo apt-get install iverilog
+#      - run: sudo apt-get install verilator
       - run: iverilog -V
       - uses: lhotari/action-upterm@v1
       - run: bash regression.sh
