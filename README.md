@@ -1,6 +1,9 @@
 # cherrycore
 
-A deep learnin training core, first in Verilog, then on FPGA, then on tinygrad, then on pytorch.
+A deep learning training core, first in Verilog, then on FPGA, then on tinygrad, then on pytorch.
+
+ISA in Cherry ISA.pdf
+Superscalar notes below
 
 ![Diagram of Cherry Core architecture](https://github.com/evanmays/cherrycore/blob/master/architecture.png?raw=true)
 # Getting Started
