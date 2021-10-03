@@ -8,7 +8,7 @@ jobs:
       - uses: actions/setup-node@v2
         with:
           node-version: '14'
-      - run: sudo add-apt-repository ppa:team-electronics/ppa -y
+#      - run: sudo add-apt-repository ppa:team-electronics/ppa -y
       - run: sudo apt-get update -q
       - run: sudo apt-get install iverilog
       - run: sudo apt-get install verilator
