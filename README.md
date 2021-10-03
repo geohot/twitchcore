@@ -1,4 +1,6 @@
-# cherrycore
+# Cherry Core
+
+![Indicator of if Unit Tests workflow are passing](https://github.com/evanmays/cherrycore/actions/workflows/SVUT.yml/badge.svg)
 
 A deep learning training core, first in Verilog, then on FPGA, then on tinygrad, then on pytorch.
 
