@@ -15,7 +15,7 @@ set -o pipefail
 
 # First testsuite running over the adder, supposed to be successful
 cd core/ControlUnit
-"$DIR/../.svut/svutRun" -test "single_loop_unit_test.sv" -define "MYDEF1=5;MYDEF2" | tee log
+"svutRun" -test "single_loop_unit_test.sv" -define "MYDEF1=5;MYDEF2" | tee log
 cd ../../
 ret=$?
 
