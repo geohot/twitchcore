@@ -10,10 +10,10 @@ module single_loop #(parameter BITS=18, SUPERSCALAR_LOG_WIDTH=2) (
   input initial_is_inner_independent_loop,
   input jumped,
   output wire done,
-  output reg [BITS-1:0] current_iteration
+  output reg [BITS-1:0] current_iteration,
+  output wire [SUPERSCALAR_LOG_WIDTH:0] MIN_OF_CUR_ITERATION_AND_SUPERSCALAR // APU needs this
 );
   parameter SUPERSCALAR_WIDTH = (1 << SUPERSCALAR_LOG_WIDTH);
-  wire [SUPERSCALAR_LOG_WIDTH:0] MIN_OF_CUR_ITERATION_AND_SUPERSCALAR;
   assign MIN_OF_CUR_ITERATION_AND_SUPERSCALAR = current_iteration < SUPERSCALAR_WIDTH ? current_iteration : SUPERSCALAR_WIDTH;
   reg is_inner_independent_loop;
   assign done = (is_inner_independent_loop ? current_iteration < SUPERSCALAR_WIDTH : ~(|current_iteration));
@@ -35,7 +35,7 @@ endmodule
 // Manages nested loop iterations
 // Tell it when a create_independent_loop or create_loop instruction starts, and the info about that
 // reset before using, please
-module loop #(parameter BITS=15, LOOP_LOG_CNT=3, SUPERSCALAR_LOG_WIDTH=2) (
+module loop #(parameter BITS=15, LOOP_LOG_CNT=3, SUPERSCALAR_LOG_WIDTH=2, LOG_APU_CNT=3) (
   input clk,
   input reset, // clear all state
   input should_increment, // active this cycle (could be stalled from full instruction queue)
@@ -45,12 +45,42 @@ module loop #(parameter BITS=15, LOOP_LOG_CNT=3, SUPERSCALAR_LOG_WIDTH=2) (
   input did_start_next_loop_iteration,
   input did_finish_loop,
   output done, // is the most nested loop out of iterations
-  output reg [SUPERSCALAR_LOG_WIDTH-1:0] copy_count // instead of 0, 1, 2, 3. it's 1, 2, 3, 4
+  output reg [SUPERSCALAR_LOG_WIDTH-1:0] copy_count, // instead of 0, 1, 2, 3. it's 1, 2, 3, 4
+
+  // expose some APU ports to whoever owns the loop module
+  input [LOG_APU_CNT-1:0] apu_selector,
+  input [(LOOP_CNT+1)*BITS*APU_CNT-1:0] new_address_formula, new_stride_x_formula, new_stride_y_formula,
+  output signed [BITS-1:0] addr, stridex, stridey, daddr, dstridex, dstridey
 );
   reg[LOOP_LOG_CNT:0] current_loop_depth; // need one extra bit to to consider when no loops are initialized
   reg is_top_of_stack_independent_loop;
   
   parameter LOOP_CNT = (1 << LOOP_LOG_CNT);
+  parameter APU_CNT = (1 << LOG_APU_CNT);
+
+  wire [LOOP_CNT*(SUPERSCALAR_LOG_WIDTH+1)-1:0] MIN_OF_CUR_ITERATION_AND_SUPERSCALAR;
+  wire [LOOP_LOG_CNT-1:0] loop_var;
+  assign loop_var = (current_loop_depth - 1);
+  wire [BITS-1:0] di;
+  assign di = did_finish_loop ? -loop_current_iteration[(current_loop_depth-1)*BITS +: BITS] : did_start_next_loop_iteration ? MIN_OF_CUR_ITERATION_AND_SUPERSCALAR[current_loop_depth] : 0;
+  
+  apu #(BITS, LOOP_LOG_CNT, LOG_APU_CNT) apu(
+    .clk(clk),
+    .reset(reset),
+    .di(di), // set within this module
+    .new_address_formula(new_address_formula),
+    .new_stride_x_formula(new_stride_x_formula),
+    .new_stride_y_formula(new_stride_y_formula),
+    .change_loop_var(did_change_loop_depth), // set within this module
+    .loop_var(loop_var), // set within this module
+    .apu_selector(apu_selector),
+    .addr(addr),
+    .stridex(stridex),
+    .stridey(stridey),
+    .daddr(daddr),
+    .dstridex(dstridex),
+    .dstridey(dstridey)
+  );
 
   // A stack of loops.
   // When receive new instruction, push loop to top of stack
@@ -65,7 +95,8 @@ module loop #(parameter BITS=15, LOOP_LOG_CNT=3, SUPERSCALAR_LOG_WIDTH=2) (
     .initial_is_inner_independent_loop(new_loop_is_inner_independent_loop),
     .jumped(did_start_next_loop_iteration),
     .done(loop_done),
-    .current_iteration(loop_current_iteration)
+    .current_iteration(loop_current_iteration),
+    .MIN_OF_CUR_ITERATION_AND_SUPERSCALAR(MIN_OF_CUR_ITERATION_AND_SUPERSCALAR)
   );
 
 
@@ -76,6 +107,7 @@ module loop #(parameter BITS=15, LOOP_LOG_CNT=3, SUPERSCALAR_LOG_WIDTH=2) (
     end
   endgenerate
 
+  reg did_change_loop_depth;
   reg just_jumped_back;
   always @(posedge clk) begin
     if (reset) begin
@@ -96,9 +128,13 @@ module loop #(parameter BITS=15, LOOP_LOG_CNT=3, SUPERSCALAR_LOG_WIDTH=2) (
       if (did_finish_loop) begin
         current_loop_depth <= current_loop_depth - 1;
         is_top_of_stack_independent_loop <= 0;
+        did_change_loop_depth <= 1;
       end else if (should_create_new_loop) begin
         current_loop_depth <= current_loop_depth + 1;
         is_top_of_stack_independent_loop <= new_loop_is_inner_independent_loop;
+        did_change_loop_depth <= 1;
+      end else begin
+        did_change_loop_depth <= 0;
       end
     end
   end
