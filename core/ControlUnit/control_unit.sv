@@ -1,4 +1,4 @@
-// You'll have a bad time changing instruction width for fun.
+// You'll have a bad time changing ISA width for fun.
 module control_unit#(parameter CHERRY_ISA_WIDTH=18, INSTRUCTION_ADDR_WIDTH=18)(
   input clk,
   input reset,
@@ -26,9 +26,11 @@ decoder decoder(
   .instruction_type(instruction_type),
   .error(error)
 );
+// TODO: broadcast loop controller's apu outputs to the queue. Send copycount to queue as well. no logic
+// TODO: broadcast instruction to the queue, send copycount to queue as well. no logic
 always @(posedge clk) begin
-  pc <= pc + 1; // TODO: support jump from loop controller
-  // TODO: suppor superscalar from loop controller
+  pc <= pc + 1; // TODO: support jump from decoder if on end_loop_or_jump instruction and loop controller says inner loop not done
+  
   case (instruction_type)
     2'b00: begin
       memory_instructions[0 +: 16] <= memory_instruction;
