@@ -1,4 +1,4 @@
-name: SVUT
+name: Unit Tests
 on: [push]
 jobs:
   system-verilog-unit-tests:
