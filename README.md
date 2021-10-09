@@ -121,3 +121,18 @@ TODO
 * 128k elements = 17-bit address path
 * rs1 = 2x4-bit masks + 17-bit address
 * rs2 = 2x16-bit strides
+
+# Compiler
+
+Basic example in `experiments/compiler`
+
+Compiles code written in python to the Cherry ISA.
+
+Take code from tiny grad, add a `@cherry_kernel` decorator to a function and replace a `for i in range(n)` with `for i in cherry_range(n)`.
+
+`cherry_range()` the Cherry device can run the loop iterations out of order and concurrently. So the loop body iterations must be independent. This helps with latency.
+
+TODO:
+* Support the entire instruction set
+* Create assembler
+* More todo's in the `experiments/compiler/compiler.py`
