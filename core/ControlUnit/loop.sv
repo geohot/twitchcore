@@ -10,10 +10,10 @@ module single_loop #(parameter BITS=18, SUPERSCALAR_LOG_WIDTH=2) (
   input initial_is_inner_independent_loop,
   input jumped,
   output wire done,
-  output reg [BITS-1:0] current_iteration,
-  output wire [SUPERSCALAR_LOG_WIDTH:0] MIN_OF_CUR_ITERATION_AND_SUPERSCALAR // APU needs this
+  output reg [BITS-1:0] current_iteration
 );
   parameter SUPERSCALAR_WIDTH = (1 << SUPERSCALAR_LOG_WIDTH);
+  wire [SUPERSCALAR_LOG_WIDTH:0] MIN_OF_CUR_ITERATION_AND_SUPERSCALAR;
   assign MIN_OF_CUR_ITERATION_AND_SUPERSCALAR = current_iteration < SUPERSCALAR_WIDTH ? current_iteration : SUPERSCALAR_WIDTH;
   reg is_inner_independent_loop;
   assign done = (is_inner_independent_loop ? current_iteration < SUPERSCALAR_WIDTH : ~(|current_iteration));
@@ -58,11 +58,10 @@ module loop #(parameter BITS=15, LOOP_LOG_CNT=3, SUPERSCALAR_LOG_WIDTH=2, LOG_AP
   parameter LOOP_CNT = (1 << LOOP_LOG_CNT);
   parameter APU_CNT = (1 << LOG_APU_CNT);
 
-  wire [LOOP_CNT*(SUPERSCALAR_LOG_WIDTH+1)-1:0] MIN_OF_CUR_ITERATION_AND_SUPERSCALAR;
   wire [LOOP_LOG_CNT-1:0] loop_var;
   assign loop_var = (current_loop_depth - 1);
   wire [BITS-1:0] di;
-  assign di = did_finish_loop ? -loop_current_iteration[(current_loop_depth-1)*BITS +: BITS] : did_start_next_loop_iteration ? MIN_OF_CUR_ITERATION_AND_SUPERSCALAR[current_loop_depth] : 0;
+  assign di = did_finish_loop ? -loop_current_iteration[(current_loop_depth-1)*BITS +: BITS] : did_start_next_loop_iteration ? copy_count + 1 : 0;
   
   apu #(BITS, LOOP_LOG_CNT, LOG_APU_CNT) apu(
     .clk(clk),
@@ -95,8 +94,7 @@ module loop #(parameter BITS=15, LOOP_LOG_CNT=3, SUPERSCALAR_LOG_WIDTH=2, LOG_AP
     .initial_is_inner_independent_loop(new_loop_is_inner_independent_loop),
     .jumped(did_start_next_loop_iteration),
     .done(loop_done),
-    .current_iteration(loop_current_iteration),
-    .MIN_OF_CUR_ITERATION_AND_SUPERSCALAR(MIN_OF_CUR_ITERATION_AND_SUPERSCALAR)
+    .current_iteration(loop_current_iteration)
   );
 
 
