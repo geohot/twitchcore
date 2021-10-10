@@ -160,10 +160,46 @@ Take code from tiny grad, add a `@cherry_kernel` decorator to a function and rep
 
 If max instruction latency is 4, then we want our superscalar to execute loop iterations instructions concurrently.
 
+Programs must be recompiled if their input tensors change shape. So if you have 3 matrices, A, B, C.
+
+```python
+# A shape is (10,100)
+# B shape is (100,200)
+# C shape is (200,10)
+A @ B @ C # matrix multiply twice
+```
+This requires two matmul programs uploaded to Cherry device. One is for input tensors of shape `(10,100)` and `(100,200)` the other is for input tensors of shape `(100,200)` and `(200,10)`. Of course, both programs that were uploaded had the same high level source code written in python.
+
+If the community sees a lot of people multipliying groups of 3 matrices, maybe someone will write a high level python program to multiply 3 matrices instead of 2. Then this code would only need to compile and be uploaded to the cherry once. This should be easy since writing code for Cherry is easy if you have a good algorithm. The new kernel even saves memory bandwidth. I suspect memory bandwidth will be a common usecase for creating new kernels. 
+
+These kernels can be open sourced and shared in a community kernel repo.
+
+
 TODO:
 * Support the entire instruction set
 * Create assembler
 * More todo's in the `experiments/compiler/compiler.py`
+* Allow kernels to have metadata saying when to replace another sequence of kernels with the new kernel. i.e.
+
+```python
+@cherry_kernel
+def matmul_two(A, B):
+     for i in cherry_range(A.shape * B.shape):
+          load
+          load
+          matmul
+          store
+
+@cherry_kernel(sequence_to_replace[matmul_two, matmul_two])
+def matmul_three(A, B, C):
+     for i in cherry_range(A.shape * B.shape * C.shape):
+          load
+          load
+          matmul
+          load
+          matmul
+          store
+```
 
 # DMA Notes
 
