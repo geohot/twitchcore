@@ -4,7 +4,7 @@ module decoder (
     input [17:0] raw_instruction,
     output reg[15:0] memory_instruction,
     output reg[15:0] processing_instruction,
-    output reg[2:0] loop_instruction,
+    output reg[4:0] loop_instruction,
     output reg[1:0] instruction_type, // memory = 00, processing = 01, or loop = 10
     output reg error
 );
@@ -42,8 +42,9 @@ module decoder (
         // on or off, load or store, apu (0 through 15), reg used for load instructions, height, width, 0 flag used for load, skip flag used for load, reg used for store instruction
         15 /* LOAD */       : memory_instruction <= {1'b1, 1'b0, raw_instruction[12:9], raw_instruction[8:7], raw_instruction[6:5], raw_instruction[4:3], raw_instruction[2], raw_instruction[1], 2'b00};
         16 /* STORE */      : memory_instruction <= {1'b1, 1'b1, raw_instruction[12:9], 2'b00, raw_instruction[6:5], raw_instruction[4:3], 1'b0, 1'b0, raw_instruction[8:7]};
-        17 /* START_INDEPENDENT_LOOP */ : loop_instruction <= raw_instruction[12:10];
-        18 /* START_LOOP */ : loop_instruction <= raw_instruction[12:10];
+        17 /* START_INDEPENDENT_LOOP */ : loop_instruction <= {2'b00, raw_instruction[12:10]};
+        18 /* START_LOOP */ : loop_instruction <= {2'b01, raw_instruction[12:10]};
+        19 /* JUMP_OR_END_LOOP */ : loop_instruction <= {2'b11, raw_instruction[12:10]};
         // TODO: add end loop instruction
         default             : error <= 1;
       endcase    
