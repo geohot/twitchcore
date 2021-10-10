@@ -81,6 +81,8 @@ Instead of executing load, load, matmul, store, load, load, matmul, store. We wi
 
 This is super cheap to implement in hardware. Hopefully, under 1,500 of our 64,000 luts.
 
+Superscalar implementation in `experiments/superscalar.py`. Can play around with different latencies for matmul or memory accesses. Can also play around with different superscalr widths. In hardware, increasing superscalar with is almost free for us on FPGA.
+
 More info (and example code for `cherry_range()` in the compiler section.
 
 # Tensor Cores
