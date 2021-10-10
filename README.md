@@ -93,7 +93,8 @@ They can be pipelined. Ideal latency is 3 or less cycles. Every doubling of late
 
 * Test floating point multiply
 * Write & test floating point add
-* Write & test floating point fused multiply add
+* Write & test floating point fused multiply add (FMA) (http://jctjournals.com/May2016/v5.pdf)
+* Use fused multiply accumulate (FMA) for the matmul and mulacc
 * Write & test Relu (should be an easy intro, save for noobs)
 * Write & test GT0 (should be an easy intro, save for noobs)
 * Write & test the other unops and binops
@@ -216,4 +217,6 @@ Big Cherry 1
 Cherry 2
 `8*12e9` bits per second @ 500MHz is 192 bits per cycle. But now port is `32*18=576` bits wide. Still can't use full port. Must have a hardware generated mask. Even with next gen PCIE still need mask.
 
-TODO: Can we add this 5th port? Does a mask work? Can we keep the fifth port and other DMA stuff under 5% LUT usage?
+TODO:
+* Can we add this 5th port? Does a mask work? Can we keep the fifth port and other DMA stuff under 5% LUT usage?
+* Figure out how to make DMA work both in verilog and python. Ideally, when a user does tensor_a.to_gpu() this actually just moves the tensor to pinned memory on host computer. Software malloc manages SRAM caching by DMAing between pinned host memory and cherry sram.
