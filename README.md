@@ -63,14 +63,25 @@ We can cheat on the superscalar. All deep learning kernels have lots of loops (t
 Example
 
 ```python
-@cherry_loop(independent=True)
+# Slow, in order
 for i in range(2):
+     load
+     load
+     matmul
+     store
+
+# Fast, out of order
+for i in cherry_range(2):
      load
      load
      matmul
      store
 ```
 Instead of executing load, load, matmul, store, load, load, matmul, store. We will do some time multiplexing on each loop iteration. We execute, load, load, load, load, matmul, matmul, store, store. This hides the latency. NVIDIA does a similar thing but the CUDA programmer must think about threads and warps. Our "threads" are implicit.
+
+This is super cheap to implement in hardware. Hopefully, under 1,500 of our 64,000 luts.
+
+More info (and example code for `cherry_range()` in the compiler section.
 
 # Tensor Cores
 
