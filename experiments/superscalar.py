@@ -64,10 +64,11 @@ for a, b in zip(memory_q[:instructions_used],processing_q[:instructions_used]):
     print(f"{i:<15}   {a:<22}   {b:<23}")
     i += 1
 
-memory_q_empty = sum([0 if i == '_' else 1 for i in memory_q[:instructions_used]])
-processing_q_empty = sum([0 if i == '_' else 1 for i in processing_q[:instructions_used]])
+memory_q_used = sum([0 if i == '_' else 1 for i in memory_q[:instructions_used]])
+processing_q_used = sum([0 if i == '_' else 1 for i in processing_q[:instructions_used]])
 print()
 print(bold(f"{'====== Statistics ======':^60}\n"))
-print(f"{bold('Memory utilization:'):<35} {memory_q_empty/instructions_used:>25.2%}")
-print(f"{bold('Processing utilization:'):<35} {processing_q_empty/instructions_used:>25.2%}")
+print(f"{bold('Memory utilization:'):<35} {memory_q_used/instructions_used:>25.2%}")
+print(f"{bold('Processing utilization:'):<35} {processing_q_used/instructions_used:>25.2%}")
+print(f"{bold('Instructions per Cycle:'):<35} {(memory_q_used + processing_q_used) / instructions_used:>25.2f} (technically more with loop instructions)")
 print(f"{bold('Expected workload success:'):<35} {SAD_FACTOR:>25.2f}")
