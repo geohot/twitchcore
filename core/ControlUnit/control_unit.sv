@@ -5,7 +5,7 @@ module control_unit#(parameter CHERRY_ISA_WIDTH=18, INSTRUCTION_ADDR_WIDTH=18, M
   input [17:0] kernel_start_instruction,
   input [CHERRY_ISA_WIDTH-1:0] raw_instruction,
   output reg [(MEMORY_ADDRESS_BITS*3+15)*SUPERSCALAR_WIDTH+1:0] memory_instructions, //3*SUPERSCALAR_WIDTH integers and 1 bit to signal if instruction is load or store
-  output reg [16*4-1:0] processing_instructions,
+  output decoded_processing_instruction processing_instructions,
   output reg [SUPERSCALAR_LOG_WIDTH-1:0] copy_count,
   output reg memory_instruction_we, processing_instruction_we,
   output reg [INSTRUCTION_ADDR_WIDTH-1:0] pc, // address of instruction we want to read next
@@ -27,7 +27,7 @@ reg should_create_new_loop;
 reg did_start_next_loop_iteration;
 reg did_finish_loop;
 wire is_loop_done;
-wire [LOG_APU_CNT-1:0] apu_selector; // TODO: set from instrcution
+reg [LOG_APU_CNT-1:0] apu_selector;
 wire [(LOOP_CNT+1)*MEMORY_ADDRESS_BITS*APU_CNT-1:0] new_address_formula, new_stride_x_formula, new_stride_y_formula; // TODO: set from memory
 wire signed [MEMORY_ADDRESS_BITS-1:0] addr, stridex, stridey, daddr, dstridex, dstridey; // TODO: do stuff
 loop loop (
@@ -54,8 +54,9 @@ loop loop (
 );
 
 // Decoder
-wire [15:0] memory_instruction, processing_instruction;
-wire [4:0] loop_instruction;
+wire decoded_memory_instruction memory_instruction;
+wire decoded_processing_instruction processing_instruction;
+wire decoded_loop_instruction loop_instruction;
 wire [1:0] instruction_type;
 decoder decoder(
   .clk(clk),
@@ -64,12 +65,10 @@ decoder decoder(
   .memory_instruction(memory_instruction), //TODO: send to APU
   .processing_instruction(processing_instruction),
   .loop_instruction(loop_instruction),
-  .instruction_type(instruction_type),
-  .error(error_wire)
+  .instruction_type(instruction_type)
 );
 always @(posedge clk) begin
   copy_count <= copy_count_wire;
-  error <= error_wire;
   if (reset) begin
     state <= 2'b00;
   end
@@ -80,25 +79,31 @@ always @(posedge clk) begin
     end
     2'b01: begin
       state <= 2'b10;
-      pc <= pc + 1 - jump_amount; // TODO: support jump from decoder if on end_loop_or_jump instruction and loop controller says inner loop not done
+      pc <= pc + 1 - jump_amount;
       case (instruction_type)
         2'b00: begin
-          memory_instructions <= {memory_instruction[14:0], addr, stridex, stridey, {(SUPERSCALAR_WIDTH-1){memory_instruction[14:0], daddr, dstridex, dstridey}}};
+          error <= 0;
           memory_instruction_we <= 1;
           processing_instruction_we <= 0;
+          apu_selector <= memory_instruction.apu;
+          memory_instructions <= {memory_instruction.is_load, memory_instruction.target, memory_instruction.height, memory_instruction.width, memory_instruction.zero_flag, memory_instruction.skip_flag, addr, stridex, stridey, daddr, dstridex, dstridey};
         end
         2'b01: begin
-          processing_instructions[0 +: 16] <= processing_instruction;
+          error <= 0;
           memory_instruction_we <= 0;
           processing_instruction_we <= 1;
+          processing_instructions <= processing_instruction;
         end
         2'b10: begin
-          case (loop_instruction[4:3])
+          error <= 0;
+          memory_instruction_we <= 0;
+          processing_instruction_we <= 0;
+          case (loop_instruction.loop_instr_type)
             2'b00 : begin
               //independent
               should_create_new_loop <= 1;
-              new_loop_iteration_count <= loop_instruction[2:0];
-              new_loop_is_inner_independent_loop <= 1;
+              new_loop_iteration_count <= loop_instruction[2:0]; // TODO: get from kcache
+              new_loop_is_inner_independent_loop <= 1; // TODO: get from kcache
               did_start_next_loop_iteration <= 0;
               did_finish_loop <= 0;
             end
@@ -119,12 +124,12 @@ always @(posedge clk) begin
             end
             // 2'b10 :
           endcase
-          //TODO: if begin loop instr, then send loop_instruction to loop controller;
+        end
+        2'b11: begin
+          error <= 1;
           memory_instruction_we <= 0;
           processing_instruction_we <= 0;
         end
-        // 2'b11: begin
-        // end
       endcase
     end
     2'b10: begin
