@@ -106,11 +106,26 @@ We want to support a load/store instruction into 32x32 matrix register (2432 byt
 * rs2 contains two 24-bit strides for x and y. Several of these bits aren't connected
 * "rd" is the extension register to load into / store from
 
-Use some hash function on the addresses to avoid "bank conflicts", can upper bound the fetch time.
+Use some hash function on the addresses to avoid "bank conflicts", can upper bound to probabilisticly 1.2 cycles per matrix load with stride x as 0 or 1.
+
+Memory ports won't truly support stride x greater than 1 but Conv2d is the only thing using that. And only when H and W are not both 1. We will have the memory accesses get progressively slower as H and W increase, eventually it asymptotes. It will still be higher bandwidth than nvidia even at slowest point. But why waste the transistors supporting a stride x > 1 when the only one who needs it is convolutions.
+
+If user tries stride y as 1 and stride x > 1, then we just transpose the matrix during the load.
+
+On Big Cherry 1
+z=min(stride x, stride y)
+z=0 is max efficiency
+z=1 is max efficiency
+z=4 is 4x slower
+z=9 is 8x slower
+z>=16 is 16x slower
+
+Convolution with H,W=3 is H*W=Z=9 so 8x slower. Convolution with H,W=1 is Z=1 so max bandwidth.
 
 TODO
-* load with stride 0 in X
-* signal stalls due to bank conflicts
+* load with stride 0 in X or both X and Y
+* signal stalls due to bank conflicts or min(stride x, stride y) > 1
+* Handle min(stride x, stride y) > 1 by splitting into multiple accesses
 
 # Notes on ALU
 
@@ -141,7 +156,9 @@ Compiles code written in python to the Cherry ISA.
 
 Take code from tiny grad, add a `@cherry_kernel` decorator to a function and replace a `for i in range(n)` with `for i in cherry_range(n)`.
 
-`cherry_range()` the Cherry device can run the loop iterations out of order and concurrently. So the loop body iterations must be independent. This helps with latency.
+`cherry_range()` the Cherry device can run the loop iterations out of order and concurrently. So the loop body iterations must be independent. This helps with latency. This is easy because loop iteration only affects memory addresses and strides which are both linear functions of loop iteration variables. Loop controller and it's APUs (Address Processing Units) take care of this.
+
+If max instruction latency is 4, then we want our superscalar to execute loop iterations instructions concurrently.
 
 TODO:
 * Support the entire instruction set
