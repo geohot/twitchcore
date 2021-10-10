@@ -2,7 +2,7 @@
 `include "svut_h.sv"
 
 /// Specify the module to load or on files.f
-`include "pre_queue_loop.sv"
+`include "loop.sv"
 
 `timescale 1 ns / 100 ps
 
