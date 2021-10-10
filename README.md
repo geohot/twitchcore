@@ -136,3 +136,18 @@ TODO:
 * Support the entire instruction set
 * Create assembler
 * More todo's in the `experiments/compiler/compiler.py`
+
+# DMA Notes
+
+DMA is driven by CPU. this code should be straight forward. Simple malloc algorithm determines where we have free space and what to evict. Then check if any active kernels are using the memory space, if not, do memory operations on the BRAMs. On small cherry 1 (mini edition), memory has 5 ports of width 18*4. 4 ports are for running kernels, 5th port is for DMA. 4 ports have priority. 5th port stalls a bunch. Perhaps reordering can happen on the 5th port to prevent stalls. Software side won't know exact timing so reordering must happen in hardware. Simple algorithm, pull 2 memory dma ops at a time, do the first one if you can, if doesn't work, try second one, if doesn't work stall. This should get us to maybe 5% stall rate. Can increase decode width to 4 for ~0% stall rate. I'm just guestimating on this percent but it feels accurate.
+
+Small Cherry 1
+`100e6` bits per second @ 50MHz is 2 bits per cycle. Can't even use full 5th port. Must have a hardware generated mask
+
+Big Cherry 1
+`8*12e9` bits per second @ 500MHz is 192 bits per cycle. But now port is `16*18=288` bits wide. Still can't use full port. Must have a hardware generated mask
+
+Cherry 2
+`8*12e9` bits per second @ 500MHz is 192 bits per cycle. But now port is `32*18=576` bits wide. Still can't use full port. Must have a hardware generated mask. Even with next gen PCIE still need mask.
+
+TODO: Can we add this 5th port? Does a mask work? Can we keep the fifth port and other DMA stuff under 5% LUT usage?
