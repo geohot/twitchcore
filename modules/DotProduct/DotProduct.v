@@ -1,4 +1,4 @@
-`include "../FpMul/FpMul.v"
+`include "../Arith/Mul.v"
 `include "../FpAdd_c/FpAdd_c.v"
 
 module recursivesum (
@@ -22,9 +22,7 @@ module DotProduct (
     output wire[27-1:0] OUT
 );
 parameter N = 32;
-FpMul mul_unit[N-1:0] (
-    A, B, firstOUT
-);
+Mul #(.MANTISSA(18)) mul_unit[N-1:0] (A, B, firstOUT);
 wire[27*N-1:0] firstOUT;
 recursivesum#(N) depth1(
     firstOUT,

@@ -1,3 +1,4 @@
+`include "../DotProduct/DotProduct.v"
 module MatMul (
     input [27*N*N-1:0] MAT_A, MAT_B,
     output [27*N*N-1:0] MAT_OUT
