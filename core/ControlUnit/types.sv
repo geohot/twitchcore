@@ -1,3 +1,4 @@
+typedef enum {LOOP_TYPE_START_INDEPENDENT, LOOP_TYPE_START_SLOW, LOOP_TYPE_JUMP_OR_END} e_loop_instr_type;
 typedef struct packed {
 	reg is_load; // 1 for load, 0 for store
   reg [2:0] apu;
@@ -8,7 +9,7 @@ typedef struct packed {
 } decoded_memory_instruction;
 
 typedef struct packed {
-  reg [1:0] loop_instr_type; // 00 for start_independent, 01 for start_slow, 11 for jump_or_end_loop
+  e_loop_instr_type loop_instr_type; // 00 for start_independent, 01 for start_slow, 11 for jump_or_end_loop
   reg [2:0] loop_address;
 } decoded_loop_instruction;
 

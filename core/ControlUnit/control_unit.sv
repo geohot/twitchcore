@@ -15,7 +15,7 @@ module control_unit#(parameter CHERRY_ISA_WIDTH=18, INSTRUCTION_ADDR_WIDTH=18, M
 parameter SUPERSCALAR_WIDTH = (1 << SUPERSCALAR_LOG_WIDTH);
 parameter LOOP_CNT = (1 << LOOP_LOG_CNT);
 parameter APU_CNT = (1 << LOG_APU_CNT);
-reg [1:0] state;
+enum {STATE_START, STATE_EXECUTE, STATE_STALL, STATE_FINISH} state;
 reg [2:0] jump_amount;
 wire [SUPERSCALAR_LOG_WIDTH-1:0] copy_count_wire;
 wire error_wire;
@@ -73,12 +73,12 @@ always @(posedge clk) begin
     state <= 2'b00;
   end
   case (state)
-    2'b00: begin
-      state <= 2'b01;
+    STATE_START: begin
+      state <= STATE_EXECUTE;
       // TODO: support starting new kernel using kernel_start_instruction
     end
-    2'b01: begin
-      state <= 2'b10;
+    STATE_EXECUTE: begin
+      state <= STATE_STALL;
       pc <= pc + 1 - jump_amount;
       case (instruction_type)
         2'b00: begin
@@ -99,24 +99,21 @@ always @(posedge clk) begin
           memory_instruction_we <= 0;
           processing_instruction_we <= 0;
           case (loop_instruction.loop_instr_type)
-            2'b00 : begin
-              //independent
+            LOOP_TYPE_START_INDEPENDENT : begin
               should_create_new_loop <= 1;
               new_loop_iteration_count <= loop_instruction[2:0]; // TODO: get from kcache
               new_loop_is_inner_independent_loop <= 1; // TODO: get from kcache
               did_start_next_loop_iteration <= 0;
               did_finish_loop <= 0;
             end
-            2'b01 : begin
-              //dependent
+            LOOP_TYPE_START_SLOW : begin
               should_create_new_loop <= 1;
               new_loop_iteration_count <= loop_instruction[2:0];
               new_loop_is_inner_independent_loop <= 0;
               did_start_next_loop_iteration <= 0;
               did_finish_loop <= 0;
             end
-            2'b11 : begin 
-              // end loop instruction
+            LOOP_TYPE_JUMP_OR_END : begin 
               should_create_new_loop <= 0;
               jump_amount = is_loop_done ? 0 : loop_instruction[2:0];
               did_start_next_loop_iteration <= !is_loop_done; // why is this set up here. for pipelining? can be in loop controller
@@ -132,12 +129,12 @@ always @(posedge clk) begin
         end
       endcase
     end
-    2'b10: begin
-      state <= 2'b11;
+    STATE_STALL: begin
+      state <= STATE_FINISH;
       // TODO: support stall
     end
-    2'b11: begin
-      state <= 2'b00;
+    STATE_FINISH: begin
+      state <= STATE_START;
       // TODO: support finishing kernel
     end
   endcase

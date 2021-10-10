@@ -46,9 +46,9 @@ module decoder (
         14 /* ZERO */       : processing_instruction <= {13'b0000000000001, raw_instruction[5:6], 2'b0};
         15 /* LOAD */       : memory_instruction <= {1'b1, raw_instruction[5:7], raw_instruction[8:9], raw_instruction[10:11], raw_instruction[12:13], raw_instruction[14], raw_instruction[15]};
         16 /* STORE */      : memory_instruction <= {1'b0, raw_instruction[5:7], raw_instruction[8:9], raw_instruction[10:11], raw_instruction[12:13], raw_instruction[14], raw_instruction[15]};
-        17 /* START_INDEPENDENT_LOOP */ : loop_instruction <= {2'b00, raw_instruction[5:7]};
-        18 /* START_LOOP */ :             loop_instruction <= {2'b01, raw_instruction[5:7]};
-        19 /* JUMP_OR_END_LOOP */ :       loop_instruction <= {2'b11, raw_instruction[5:7]};
+        17 /* START_INDEPENDENT_LOOP */ : loop_instruction <= {LOOP_TYPE_START_INDEPENDENT, raw_instruction[5:7]};
+        18 /* START_LOOP */ :             loop_instruction <= {LOOP_TYPE_START_SLOW, raw_instruction[5:7]};
+        19 /* JUMP_OR_END_LOOP */ :       loop_instruction <= {LOOP_TYPE_JUMP_OR_END, raw_instruction[5:7]};
       endcase    
     end
   end
