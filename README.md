@@ -10,6 +10,19 @@ Superscalar notes below
 [How faster than 3090](https://docs.google.com/presentation/d/1JEysqlI_p8qhONiCQVEdrohAqypjY5eJTStA6SZking/edit#slide=id.p)
 
 ![Diagram of Cherry Core architecture](https://github.com/evanmays/cherrycore/blob/master/architecture.png?raw=true)
+
+# How to get to working cherry 1
+
+Just want a chip that supports loop instructions and relu instructions. Then we can add remaining instructions in a straightforward manner later.
+
+Just finish these last 5 things
+
+* Make dcache work for bank conflicts
+* Make DMA engine (allow it to be driven by host PC. Cherry device sends some kind of ACK message back to host)
+* Make instruction queues that check for hazards on insert
+* Make a 3 cycle latency ReLU
+* Create `module top` that wires all the pieces together
+
 # Getting Started
 
 ### Prerequisites
