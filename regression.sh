@@ -13,9 +13,35 @@ set -ex
 set -o pipefail
 
 
-# First testsuite running over the adder, supposed to be successful
+# # Single loop Test Suite
+# cd core/ControlUnit
+# "svutRun" -test "single_loop_unit_test.sv" -define "MYDEF1=5;MYDEF2" | tee log
+# cd ../../
+# ret=$?
+
+# if [[ $ret != 0 ]]; then
+#     echo "Execution failed but should not..."
+#     exit 1
+# else
+#     echo "OK testsuite execution completed successfully ^^"
+# fi
+
+# # APU Test Suite
+# cd core/ControlUnit
+# "svutRun" -test "apu_unit_test.sv" -define "MYDEF1=5;MYDEF2" | tee log
+# cd ../../
+# ret=$?
+
+# if [[ $ret != 0 ]]; then
+#     echo "Execution failed but should not..."
+#     exit 1
+# else
+#     echo "OK testsuite execution completed successfully ^^"
+# fi
+
+# Program Cache Test Suite
 cd core/ControlUnit
-"svutRun" -test "single_loop_unit_test.sv" -define "MYDEF1=5;MYDEF2" | tee log
+"svutRun" -test "ro_data_mem_unit_test.sv" -define "MYDEF1=5;MYDEF2" | tee log
 cd ../../
 ret=$?
 
@@ -26,9 +52,9 @@ else
     echo "OK testsuite execution completed successfully ^^"
 fi
 
-# APU Test Suite
+# Control unit Test Suite
 cd core/ControlUnit
-"svutRun" -test "apu_unit_test.sv" -define "MYDEF1=5;MYDEF2" | tee log
+"svutRun" -test "control_unit_test.sv" -define "MYDEF1=5;MYDEF2" | tee log
 cd ../../
 ret=$?
 

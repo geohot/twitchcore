@@ -1,23 +1,29 @@
-// You'll have a bad time changing ISA width for fun.
-module control_unit#(parameter CHERRY_ISA_WIDTH=18, INSTRUCTION_ADDR_WIDTH=18, MEMORY_ADDRESS_BITS=15, LOG_APU_CNT=3, SUPERSCALAR_LOG_WIDTH=2, LOOP_LOG_CNT=3)(
+// Low performance single stage CPU. Generates instructions for the actual cherry core.
+// When combined with a BRAM kcache. Reading from BRAM and doing all of cpu module's combinatorial logic gets clock rate almost 60MHz.
+// 2903 LUT total. 998 for APU. 1821 for Loop controller. Each individual loop is about 100 LUT.
+// It will 3x when we go to big cherry 1. On small its 4%, on big it's 1%.
+module cpu#(parameter LOG_KCACHE_SIZE=11, MEMORY_ADDRESS_BITS=15, LOG_APU_CNT=3, SUPERSCALAR_LOG_WIDTH=2, LOOP_LOG_CNT=3)(
   input clk,
   input reset,
-  input [17:0] kernel_start_instruction,
-  input [CHERRY_ISA_WIDTH-1:0] raw_instruction,
-  output reg [(MEMORY_ADDRESS_BITS*3+15)*SUPERSCALAR_WIDTH+1:0] memory_instructions, //3*SUPERSCALAR_WIDTH integers and 1 bit to signal if instruction is load or store
-  output decoded_processing_instruction processing_instructions,
-  output reg [SUPERSCALAR_LOG_WIDTH-1:0] copy_count,
+  input [16:0] kernel_start_address,
+  input [0:17] raw_instruction,
+  input raw_instruction_fetch_successful,
+  input queue_almost_full,
+  input apu_formulas apu_formulas_ro_data,
+  input wire [0:BITS*2*8-1] loop_ro_data,
+  output queue_memory_instruction queue_memory_instructions,
+  output decoded_processing_instruction queue_processing_instructions,
+  output wire [SUPERSCALAR_LOG_WIDTH-1:0] copy_count,
   output reg memory_instruction_we, processing_instruction_we,
-  output reg [INSTRUCTION_ADDR_WIDTH-1:0] pc, // address of instruction we want to read next
+  output reg [LOG_KCACHE_SIZE-1:0] pc, // address of instruction we want to read next
   output reg error
 );
-
+assign queue_memory_instructions = {apu_output_wire, memory_instruction.control};
+assign queue_processing_instructions = processing_instruction;
 parameter SUPERSCALAR_WIDTH = (1 << SUPERSCALAR_LOG_WIDTH);
 parameter LOOP_CNT = (1 << LOOP_LOG_CNT);
 parameter APU_CNT = (1 << LOG_APU_CNT);
 enum {STATE_START, STATE_EXECUTE, STATE_STALL, STATE_FINISH} state;
-reg [2:0] jump_amount;
-wire [SUPERSCALAR_LOG_WIDTH-1:0] copy_count_wire;
 wire error_wire;
 
 // Loop Controller
@@ -27,118 +33,108 @@ reg should_create_new_loop;
 reg did_start_next_loop_iteration;
 reg did_finish_loop;
 wire is_loop_done;
-reg [LOG_APU_CNT-1:0] apu_selector;
-wire [(LOOP_CNT+1)*MEMORY_ADDRESS_BITS*APU_CNT-1:0] new_address_formula, new_stride_x_formula, new_stride_y_formula; // TODO: set from memory
-wire signed [MEMORY_ADDRESS_BITS-1:0] addr, stridex, stridey, daddr, dstridex, dstridey; // TODO: do stuff
+wire loop_reset, loop_enable, loop_is_start_loop;
+assign loop_reset = state == STATE_START;
+assign loop_enable = instruction_type == INSTR_TYPE_LOOP && state != STATE_STALL;
+assign loop_is_start_loop = loop_instruction.loop_instr_type !== LOOP_TYPE_JUMP_OR_END;
+wire [LOOP_LOG_CNT-1:0] current_loop_depth;
+wire [BITS-1:0] apu_di;
 loop loop (
-  .clk(clk),
-  .reset(state == 2'b00), // clear all state
-  .should_increment(state != 2'b10), // active this cycle (could be stalled from full instruction queue)
-  .new_loop_iteration_count(new_loop_iteration_count), // new loop instruction
-  .new_loop_is_inner_independent_loop(new_loop_is_inner_independent_loop), // new loop instruction
-  .should_create_new_loop(should_create_new_loop),
-  .did_start_next_loop_iteration(did_start_next_loop_iteration),
-  .did_finish_loop(did_finish_loop), //TODO: is this for end_loop_or_jump instruction?
-  .done(is_loop_done), // is the most nested loop out of iterations
-  .copy_count(copy_count_wire), // instead of 0, 1, 2, 3. it's 1, 2, 3, 4
-  .apu_selector(apu_selector),
-  .new_address_formula(new_address_formula),
-  .new_stride_x_formula(new_stride_x_formula),
-  .new_stride_y_formula(new_stride_y_formula),
-  .addr(addr),
-  .stridex(stridex),
-  .stridey(stridey),
-  .daddr(daddr),
-  .dstridex(dstridex),
-  .dstridey(dstridey)
+  .clk,
+  .reset(loop_reset), // clear all state
+  .enable(loop_enable),
+  .new_loop(loop_controller_new_loop_wire),
+  .end_loop_or_jump(loop_controller_end_loop_wire),
+  .is_start_loop(loop_is_start_loop),
+  .current_loop_done(is_loop_done),
+  .copy_count(copy_count), // instead of 0, 1, 2, 3. it's 1, 2, 3, 4
+  .current_loop_depth_out(current_loop_depth),
+  .current_loop_cur_di(apu_di)
 );
 
+loop_controller_new_loop loop_controller_new_loop_wire;
+loop_controller_end_loop loop_controller_end_loop_wire;
+wire loop_mux_independent;
+assign loop_mux_independent = loop_instruction.loop_instr_type == LOOP_TYPE_START_INDEPENDENT ? 1'b1 : 1'b0;
+loopmux #(BITS) loopmux (
+    .addr         (loop_instruction.loop_address),
+    .in           (loop_ro_data),
+    .independent  (loop_mux_independent),
+    .new_loop     (loop_controller_new_loop_wire),
+    .end_loop     (loop_controller_end_loop_wire)
+);
+
+// APU
+
+wire [LOG_APU_CNT-1:0] apu_selector;
+assign apu_selector = memory_instruction.apu;
+apu_output apu_output_wire;
+apu #(BITS, LOOP_LOG_CNT, LOG_APU_CNT) apu(
+    .clk(clk),
+    .reset(loop_reset),
+    .enable(loop_enable),
+    .current_loop_done(is_loop_done),
+    .is_starting_new_loop(loop_is_start_loop),
+    .iteration_count(loop_controller_end_loop_wire.iteration_count),
+    .loop_var(current_loop_depth), 
+    .loop_di(apu_di),
+    .apu_selector(apu_selector),
+    .formulas(apu_formulas_ro_data),
+    .apu_out(apu_output_wire)
+  );
+
 // Decoder
+
 wire decoded_memory_instruction memory_instruction;
 wire decoded_processing_instruction processing_instruction;
-wire decoded_loop_instruction loop_instruction;
-wire [1:0] instruction_type;
+decoded_loop_instruction loop_instruction;
+e_instr_type instruction_type;
 decoder decoder(
-  .clk(clk),
-  .reset(reset),
   .raw_instruction(raw_instruction),
-  .memory_instruction(memory_instruction), //TODO: send to APU
+  .memory_instruction(memory_instruction),
   .processing_instruction(processing_instruction),
   .loop_instruction(loop_instruction),
-  .instruction_type(instruction_type)
+  .instruction_type(instruction_type),
+  .error(error_wire)
 );
+
+
 always @(posedge clk) begin
-  copy_count <= copy_count_wire;
-  if (reset) begin
-    state <= 2'b00;
-  end
   case (state)
     STATE_START: begin
-      state <= STATE_EXECUTE;
-      // TODO: support starting new kernel using kernel_start_instruction
+      state <= kernel_start_address ? STATE_EXECUTE : STATE_START;
+      pc <= kernel_start_address;
     end
     STATE_EXECUTE: begin
-      state <= STATE_STALL;
-      pc <= pc + 1 - jump_amount;
-      case (instruction_type)
-        2'b00: begin
-          error <= 0;
-          memory_instruction_we <= 1;
-          processing_instruction_we <= 0;
-          apu_selector <= memory_instruction.apu;
-          memory_instructions <= {memory_instruction.is_load, memory_instruction.target, memory_instruction.height, memory_instruction.width, memory_instruction.zero_flag, memory_instruction.skip_flag, addr, stridex, stridey, daddr, dstridex, dstridey};
-        end
-        2'b01: begin
-          error <= 0;
-          memory_instruction_we <= 0;
-          processing_instruction_we <= 1;
-          processing_instructions <= processing_instruction;
-        end
-        2'b10: begin
-          error <= 0;
-          memory_instruction_we <= 0;
-          processing_instruction_we <= 0;
-          case (loop_instruction.loop_instr_type)
-            LOOP_TYPE_START_INDEPENDENT : begin
-              should_create_new_loop <= 1;
-              new_loop_iteration_count <= loop_instruction[2:0]; // TODO: get from kcache
-              new_loop_is_inner_independent_loop <= 1; // TODO: get from kcache
-              did_start_next_loop_iteration <= 0;
-              did_finish_loop <= 0;
-            end
-            LOOP_TYPE_START_SLOW : begin
-              should_create_new_loop <= 1;
-              new_loop_iteration_count <= loop_instruction[2:0];
-              new_loop_is_inner_independent_loop <= 0;
-              did_start_next_loop_iteration <= 0;
-              did_finish_loop <= 0;
-            end
-            LOOP_TYPE_JUMP_OR_END : begin 
-              should_create_new_loop <= 0;
-              jump_amount = is_loop_done ? 0 : loop_instruction[2:0];
-              did_start_next_loop_iteration <= !is_loop_done; // why is this set up here. for pipelining? can be in loop controller
-              did_finish_loop <= is_loop_done;
-            end
-            // 2'b10 :
-          endcase
-        end
-        2'b11: begin
-          error <= 1;
-          memory_instruction_we <= 0;
-          processing_instruction_we <= 0;
-        end
-      endcase
+      state <= raw_instruction_fetch_successful
+               ? queue_almost_full
+                  ? STATE_STALL
+                  : STATE_EXECUTE
+               : STATE_FINISH; // tell queue to not read
+      pc <= pc + 1
+            - (!is_loop_done
+              && loop_instruction.loop_instr_type == LOOP_TYPE_JUMP_OR_END
+                ? loop_controller_end_loop_wire.jump_amount
+                : 0);
+      memory_instruction_we <= instruction_type == INSTR_TYPE_MEMORY;
+      processing_instruction_we <= instruction_type == INSTR_TYPE_PROCESSING;
     end
     STATE_STALL: begin
-      state <= STATE_FINISH;
-      // TODO: support stall
+      state <= queue_almost_full
+                ? STATE_STALL
+                : STATE_EXECUTE;
     end
     STATE_FINISH: begin
       state <= STATE_START;
-      // TODO: support finishing kernel
     end
   endcase
-  
+  if (reset) begin
+    state <= STATE_START;
+    error <= 0;
+  end else if (error_wire && state != STATE_START) begin
+    error <= 1;
+  end
+
   
 end
 endmodule
