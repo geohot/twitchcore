@@ -17,11 +17,11 @@ Just want a chip that supports loop instructions and relu instructions. Then we 
 
 Just finish these last 5 things
 
-* Make dcache work for bank conflicts
-* Make DMA engine (allow it to be driven by host PC. Cherry device sends some kind of ACK message back to host)
-* Make instruction queues that check for hazards on insert
-* Make a 3 cycle latency ReLU
-* Create `module top` that wires all the pieces together
+* **Make dcache work for bank conflicts**. If there are 4 bank conflicts, then dcache should take 4 cycles to load the matrix. During these 4 cycles, it should have an output port wire flag to tell the rest of the chip we are stalling for bank conflicts.
+* **Make DMA engine**. Allow it to be driven by host PC. Cherry device sends some kind of ACK message back to host.
+* **Make instruction queues** that check for hazards on insert. model after `superscalar.py`
+* **Make a 3 cycle latency floating point ReLU**. Probably 10 lines of verilog. We want a simple processing instruction so we can end to end test without worrying about if this is correct or not. More arithmetic will come later.
+* **Top**. Create `module top` that wires all the pieces together. Now we can test training on mnist with the relus done on cherry verilator simulator.
 
 # Getting Started
 
