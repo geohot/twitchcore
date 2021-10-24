@@ -98,6 +98,8 @@ Superscalar implementation in `experiments/superscalar.py`. Can play around with
 
 More info (and example code for `cherry_range()` in the compiler section.
 
+We also take advantage of the immutability of tensor objects to prefetch data. More here [memory model doc](memory_model.md)
+
 # Tensor Cores
 
 These all should be straightforward but annoying to get to IEEE specification.
@@ -114,6 +116,9 @@ They can be pipelined. Ideal latency is 3 or less cycles. Every doubling of late
 
 # Notes on Memory system
 
+To see what this is like from a users perspective who is writing cherry programs. View [memory model doc](memory_model.md)
+
+Strided Memory
 8 million elements (20MB) = 23-bit address path
 
 We want to support a load/store instruction into 32x32 matrix register (2432 bytes) like this:
@@ -138,10 +143,23 @@ z>=16 is 16x slower
 
 Convolution with H,W=3 is H*W=Z=9 so 8x slower. Convolution with H,W=1 is Z=1 so max bandwidth.
 
-TODO
-* load with stride 0 in X or both X and Y
-* signal stalls due to bank conflicts or min(stride x, stride y) > 1
-* Handle min(stride x, stride y) > 1 by splitting into multiple accesses
+Non Strided Memory
+
+8 million elements (20MB) = 23-bit address path
+
+Processor can only read from here, DMA can only write.
+
+No strides on chip
+
+Support a load (no store) instruction into 32x32 matrix register. The load instruction can specificy strides but they happen over time. The data is loaded from the DMA while the program is executing. If the data isn't loaded yet, program stalls.
+
+Since non strided, bank conflicts don't happen.
+
+Apple has performance cores and efficiency cores. One might call the other memory, strong cache, and this is weak cache.
+
+All cache slots (strong and weak, strided and non strided) Are split into 4 slots. Each slot can hold one tensor.
+
+If user wants their cherry program to output multiple tensors, they can store one tensor in local cache, and queue the rest of the tensors to go to DMA.
 
 # Notes on ALU
 
@@ -189,6 +207,8 @@ This requires two matmul programs uploaded to Cherry device. One is for input te
 If the community sees a lot of people multipliying groups of 3 matrices, maybe someone will write a high level python program to multiply 3 matrices instead of 2. Then this code would only need to compile and be uploaded to the cherry once. This should be easy since writing code for Cherry is easy if you have a good algorithm. The new kernel even saves memory bandwidth. I suspect memory bandwidth will be a common usecase for creating new kernels. 
 
 These kernels can be open sourced and shared in a community kernel repo.
+
+Details on the memory model when writing cherry programs that have multiple inputs (and multiple outputs which are needed for backprop). [memory model doc](memory_model.md)
 
 
 TODO:
