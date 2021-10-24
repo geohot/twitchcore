@@ -4,6 +4,7 @@ riscv-tests
 test-cache
 run
 out
+svut_h.sv
 obj_dir
 notebooks
 __pycache__
