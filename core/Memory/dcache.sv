@@ -6,7 +6,7 @@
 // this is also the size of ECC
 // use a 9 bit mantissa (cherryfloat)
 
-module risk_single_mem #(parameter LINE=18) (
+module single_dcache_mem #(parameter LINE=18) (
   input clk,
   input [9:0] addr,
   output reg [LINE-1:0] data_r,
@@ -25,7 +25,7 @@ endmodule
 
 
 // this is hard to synthesize
-module risk_mem #(parameter SZ=4, LOGCNT=5, BITS=18) (
+module dcache_mem_high_priority #(parameter SZ=4, LOGCNT=5, BITS=18) (
   input clk,
   input [10+LOGCNT-1:0] addr,
   input [10+LOGCNT-2:0] stride_x,
@@ -69,7 +69,7 @@ module risk_mem #(parameter SZ=4, LOGCNT=5, BITS=18) (
       reg [9:0] taddr;
       reg [LINE-1:0] in;
       wire [LINE-1:0] out;
-      risk_single_mem #(LINE) rsm(
+      single_dcache_mem #(LINE) rsm(
         .clk(clk),
         .addr(taddr),
         .data_r(out),
@@ -114,9 +114,24 @@ module risk_mem #(parameter SZ=4, LOGCNT=5, BITS=18) (
 
 endmodule
 
-
-module risk_alu (
-  input clk
+// Simple memory, one read port, one write port.
+module dcache_mem_low_priority #(parameter SZ=4, LOGCNT=5, BITS=18) (
+  input clk,
+  input [10+LOGCNT-1:0] addr,
+  input [LINE-1:0] dat_w,
+  input we,
+  output reg [LINE-1:0] dat_r
 );
+  parameter CNT=(1<<LOGCNT);
+  parameter LINE=BITS*SZ*SZ;
+
+  reg [LINE-1:0] mem [0:CNT*1024-1];
+  always @(posedge clk) begin
+    if (we) begin
+      mem[addr] <= data_w;
+    end else begin
+      data_r <= mem[addr];
+    end
+  end
 
 endmodule
