@@ -12,7 +12,7 @@ module risk #(parameter SZ=4, LOGCNT=5, BITS=18) (
   wire [REGSIZE-1:0] dat_r;
   reg [REGSIZE-1:0] dat_w;
   reg we;
-  risk_mem #(SZ, LOGCNT, BITS) rm(
+  dcache_mem_high_priority #(SZ, LOGCNT, BITS) rm(
     .clk(clk),
     .addr(risk_addr),
     .stride_x(risk_stride_x),

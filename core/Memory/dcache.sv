@@ -128,9 +128,9 @@ module dcache_mem_low_priority #(parameter SZ=4, LOGCNT=5, BITS=18) (
   reg [LINE-1:0] mem [0:CNT*1024-1];
   always @(posedge clk) begin
     if (we) begin
-      mem[addr] <= data_w;
+      mem[addr] <= dat_w;
     end else begin
-      data_r <= mem[addr];
+      dat_r <= mem[addr];
     end
   end
 
