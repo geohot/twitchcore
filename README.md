@@ -25,12 +25,12 @@ Just finish these last 5 things
 
 # Getting Started
 
-### Prerequisites
+### Prerequisites (MacOS & linux... sry Windows)
 * icarus-verilog 
 * yosys
 * nextpnr-xilinx if you want to place and route to check for timing
 ```sh
-brew install icarus-verilog
+brew install icarus-verilog # Yes, even on linux
 # add yosys
 # add nextpnr-xilinx which has way more steps than you'd expect
 ```
