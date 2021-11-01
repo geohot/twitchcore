@@ -15,6 +15,7 @@ module single_dcache_mem #(parameter LINE=18) (
 );
   reg [LINE-1:0] mem [0:1023];
   always @(posedge clk) begin
+    // Will be stage 3 of dcache_mem_high_priority
     if (we) begin
       mem[addr] <= data_w;
     end else begin
@@ -24,7 +25,20 @@ module single_dcache_mem #(parameter LINE=18) (
 endmodule
 
 
-// this is hard to synthesize
+/* this is hard to synthesize
+ * Pipelined with 4 stages.
+ * 1. Address calculation
+ * 2. priority encoder math to calculate input for each bank
+ * 3. single_dcache_mem execute memory access
+ * 4. OR gate for reads to register the output
+
+ * How to implement bank conflict support
+ * Detect bank conflicts with the priority encoder in stage 2. We can do an OR over the columns of mask to know which lines the priority encoder has decided to read this stage 2 cycle. (Note: OR over columns of array may require transposing the array)
+ * Stages 2 and 3 (and 4?) may need to repeat multiple times if stage 2 discovers bank conflicts. It's like we need to register dat_r in pieces depending on bank conflicts.
+ * How to test for regressions
+ * cd to this folder. then run iverilog dcache.sv dcache_testbench.v && ./a.out
+ * Output should be the same as dcache_testbench_out.txt
+ */
 module dcache_mem_high_priority #(parameter SZ=4, LOGCNT=5, BITS=18) (
   input clk,
   input [10+LOGCNT-1:0] addr,
@@ -52,6 +66,7 @@ module dcache_mem_high_priority #(parameter SZ=4, LOGCNT=5, BITS=18) (
     for (y=0; y<SZ; y=y+1) begin
       for (x=0; x<SZ_X; x=x+1) begin
         always @(posedge clk) begin
+          // Stage 1
           addrs[(y*SZ_X+x)*(10+LOGCNT) +: (10+LOGCNT)] <= addr + stride_x*x + stride_y*y;
         end
       end
@@ -79,6 +94,7 @@ module dcache_mem_high_priority #(parameter SZ=4, LOGCNT=5, BITS=18) (
 
       integer l;
       always @(posedge clk) begin
+        // Stage 2
         //ens[i] <= 'b0;
         mask[i*SZ_X*SZ +: SZ_X*SZ] <= 'b0;
         for (l=SZ_X*SZ-1; l>=0; l=l-1) begin
@@ -102,6 +118,7 @@ module dcache_mem_high_priority #(parameter SZ=4, LOGCNT=5, BITS=18) (
       // in final edition, this will be 1024 registers x 2048 BRAMs x 19-bits
       integer l;
       always @(posedge clk) begin
+        // Stage 4
         if (lmask != 'b0) begin
           dat_r[LINE*k +: LINE] = 'b0;
           for (l=0; l<CNT; l=l+1)
