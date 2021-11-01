@@ -2,7 +2,7 @@
 
 ![Indicator of if Unit Tests workflow are passing](https://github.com/evanmays/cherrycore/actions/workflows/SVUT.yml/badge.svg)
 
-A deep learning training core, first in Verilog, then on FPGA, then on tinygrad, then on pytorch.
+A deep learning training core. Start tiny with just a control unit, memory, and ReLU. Then, get bigger and better. Every version should work on real hardware.
 
 ISA in Cherry ISA.pdf
 Superscalar notes below
@@ -11,17 +11,25 @@ Superscalar notes below
 
 ![Diagram of Cherry Core architecture](https://github.com/evanmays/cherrycore/blob/master/architecture.png?raw=true)
 
-# How to get to working cherry 1
+# Cherry 1 Stages
 
-Just want a chip that supports loop instructions and relu instructions. Then we can add remaining instructions in a straightforward manner later.
+1. Tiny Cherry 1, does 1 relu per cycle (50 MFLOPs) in simulator and on physical a7-100t. It's just scaffolding so rest of parts can be worked on independently.
+2. Small Cherry 1, does 6.4 GFLOPs with support for entire ISA in simulator and on physical a7-100t
+3. Big Cherry 1, works on physical big $7500 fpga
 
-Just finish these last 5 things
+Cherry 2 and 3 master plan https://github.com/geohot/tinygrad/tree/master/accel/cherry
 
-* **Make dcache work for bank conflicts**. If there are 4 bank conflicts, then dcache should take 4 cycles to load the matrix. During these 4 cycles, it should have an output port wire flag to tell the rest of the chip we are stalling for bank conflicts.
+# How to get to working Tiny Cherry 1
+
+To get to a state where we have scaffolding. Just want a chip that supports loop, relu, and sram instructions. With SZ=1. So only operating on a single float at a time.
+
+Just finish these last 4 things
+
 * **Make DMA engine**. Allow it to be driven by host PC. Cherry device sends some kind of ACK message back to host. Needs to access data cache, program cache, and program execution queue (maybe execution queue should be over uart?).
 * **Make instruction queues** that check for hazards on insert. model after `superscalar.py`
-* **Make a 3 cycle latency floating point ReLU**. Probably 10 lines of verilog. We want a simple processing instruction so we can end to end test without worrying about if this is correct or not. More arithmetic will come later.
-* **Top**. Create `module top` that wires all the pieces together. Now we can test training on mnist with the relus done on cherry verilator simulator.
+* **Make a floating point ReLU**. Probably 10 lines of verilog. We want a simple processing instruction so we can end to end test without worrying about if this is correct or not. More arithmetic will come later.
+* **Top**. Create `module top_tiny` that wires all the pieces together. Now we can test training on mnist with the relus done on cherry verilator simulator.
+
 
 # Getting Started
 
