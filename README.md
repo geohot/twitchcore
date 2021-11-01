@@ -27,36 +27,24 @@ Just finish these last 5 things
 
 ### Prerequisites
 * icarus-verilog 
-* riscv-gnu-toolchain
+* yosys
+* nextpnr-xilinx if you want to place and route to check for timing
 ```sh
-brew install icarus-verilog riscv-gnu-toolchain
+brew install icarus-verilog
+# add yosys
+# add nextpnr-xilinx which has way more steps than you'd expect
 ```
 
-### Installation
+### Setup Development Environment
 1. Clone this repo
 ```sh
-git clone https://github.com/geohot/twitchcore
-cd twitchcore
+git clone https://github.com/evanmays/cherrycore
+cd cherrycore
  ```
-2. Clone and build `riscv-tests`
+2. Synthesize then place and route a module (in this example, the regfile)
 ```sh
-git clone https://github.com/riscv/riscv-tests
-cd riscv-tests
-git submodule update --init --recursive
-autoconf
-./configure
-make
-make install
-cd ..
-```
-3. Create a virtual environment (optional)
-```sh
-python3 -m venv env
-source env/bin/activate
-```
-4. Install Python packages
-```sh
-pip install -r requirements.txt
+/usr/local/bin/yosys -p "synth_xilinx -flatten -nowidelut -family xc7 -top regfile; write_json attosoc.json" ../core/Memory/regfile.sv
+~/Desktop/nextpnr-xilinx/nextpnr-xilinx --freq 50 --chipdb ~/Desktop/nextpnr-xilinx/xilinx/xc7a100t.bin --xdc ../arty.xdc --json attosoc.json --write attosoc_routed.json --fasm attosoc.fasm
 ```
 
 # TODO
@@ -64,8 +52,6 @@ pip install -r requirements.txt
 * Write verilog. Search for the word TODO throughout this README
 * Fix unaligned loads/stores (I think this is good now, at least acceptable)
 * Clean up this repo
-* Add github actions tests
-* Regression testing
 * Improve this readme
 
 
