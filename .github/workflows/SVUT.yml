@@ -1,0 +1,15 @@
+name: Unit Tests
+on: [push]
+jobs:
+  system-verilog-unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+#      - run: sudo add-apt-repository ppa:team-electronics/ppa -y # i think this was supposed to fix verilog in apt-get
+      - run: sudo apt-get update -q
+      - run: bash linux_install_icarus_verilog.sh
+#      - run: sudo apt-get install iverilog
+#      - run: sudo apt-get install verilator
+      - run: iverilog -V
+#      - uses: lhotari/action-upterm@v1
+      - run: bash regression.sh
